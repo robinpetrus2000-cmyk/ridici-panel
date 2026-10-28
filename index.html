@@ -1,0 +1,1622 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Robinův řídicí panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Panel R.P.">
+<meta name="theme-color" content="#0a0f15">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: {
+        bg: 'var(--bg)', panel: 'var(--panel)', panel2: 'var(--panel2)', line: 'var(--line)',
+        fg: 'var(--fg)', muted: 'var(--muted)', accent: 'var(--accent)', teal: 'var(--teal)',
+        danger: 'var(--danger)', ok: 'var(--ok)'
+      },
+      fontFamily: {
+        display: ['"Chakra Petch"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        body: ['"IBM Plex Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+      }
+    } }
+  };
+</script>
+<style>
+  /* Layout: sticky header + tab rail, one 72rem column of instrument-panel modules. Single dark look by choice. */
+  :root {
+    --bg: #0a0f15;
+    --panel: #111821;
+    --panel2: #17212d;
+    --line: #233142;
+    --fg: #e4ebf2;
+    --muted: #8796aa;
+    --accent: #ffb22e;      /* signal amber */
+    --accent-soft: #2e2512;
+    --teal: #38d3c3;
+    --teal-soft: #0f2a2a;
+    --danger: #ff6a5c;
+    --danger-soft: #331816;
+    --ok: #5fd88a;
+    --ok-soft: #13291c;
+    color-scheme: dark;
+  }
+  html, body { background: var(--bg); color: var(--fg); }
+  body { margin: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); -webkit-tap-highlight-color: transparent; }
+  body { font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+  .gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .grid-bg {
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 28px 28px; opacity: .18;
+  }
+  h1, h2, h3 { text-wrap: balance; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .label { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .field {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; color: var(--fg);
+    padding: 8px 10px; font-size: 14px; min-width: 0; width: 100%;
+  }
+  .field:focus { outline: none; border-color: var(--accent); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 7px; padding: 8px 12px;
+    font-weight: 600; font-size: 14px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg);
+    transition: border-color .15s, background .15s, color .15s; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn-primary { background: var(--accent); color: #1a1205; border-color: var(--accent); }
+  .btn-primary:hover { filter: brightness(1.08); border-color: var(--accent); }
+  .icon-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 7px; color: var(--muted); border: 1px solid transparent; flex: none; }
+  .icon-btn:hover { color: var(--fg); border-color: var(--line); background: var(--panel2); }
+  .icon-btn.danger:hover { color: var(--danger); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; font-family: "JetBrains Mono", monospace; letter-spacing: .02em; }
+  .chip-hi { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+  .chip-mid { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .chip-lo { color: var(--teal); border-color: #1f5a55; background: var(--teal-soft); }
+  .chip-ok { color: var(--ok); border-color: #2a6b43; background: var(--ok-soft); }
+  .chip-solid { background: var(--accent); color: #1a1205; border-color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { padding: 6px 11px; font-size: 13px; font-weight: 500; color: var(--muted); background: var(--panel); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--panel2); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+  .tab { display: inline-flex; align-items: center; gap: 8px; padding: 12px 4px; margin-right: 20px; color: var(--muted); font-family: "Chakra Petch", sans-serif; font-weight: 600; font-size: 15px; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tab[aria-selected="true"] { color: var(--fg); border-color: var(--accent); }
+  .tab:hover { color: var(--fg); }
+  .hot { border-color: var(--accent); background: linear-gradient(90deg, var(--accent-soft), var(--panel) 60%); }
+  .check { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--muted); display: inline-grid; place-items: center; flex: none; color: #0a0f15; }
+  .check.on { background: var(--ok); border-color: var(--ok); }
+  .gcal { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; color: var(--teal); border: 1px solid #1f5a55; background: var(--teal-soft); white-space: nowrap; text-decoration: none; }
+  .gcal:hover { border-color: var(--teal); }
+  .gcal.off { opacity: .45; cursor: not-allowed; color: var(--muted); border-color: var(--line); background: transparent; }
+  .cal-scroll { overflow-x: auto; }
+  .cal-inner { min-width: 760px; }
+  .cal-cols { display: grid; grid-template-columns: 52px repeat(7, minmax(0, 1fr)); }
+  .cal-daycol { position: relative; border-left: 1px solid var(--line); background-image: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 44px); }
+  .cal-ev { position: absolute; border-radius: 5px; padding: 2px 5px; font-size: 11.5px; line-height: 1.25; overflow: hidden; text-align: left; border: 1px solid var(--bg); }
+  .cal-ev:hover, .cal-ad:hover { filter: brightness(1.12); }
+  .cal-ad { border-radius: 4px; padding: 1px 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; margin: 0 1px; }
+  .cal-now { position: absolute; left: 0; right: 0; height: 2px; background: var(--danger); z-index: 2; }
+  .cal-now::before { content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+  button.gcal { cursor: pointer; }
+  button.gcal:disabled { opacity: .6; cursor: progress; }
+  .seg-sm button { padding: 4px 9px; font-size: 12px; }
+  .search { position: relative; }
+  .search .field { padding-left: 34px; }
+  .search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .bar { height: 8px; border-radius: 99px; background: var(--panel2); overflow: hidden; border: 1px solid var(--line); }
+  .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--teal), var(--accent)); border-radius: 99px; transition: width .4s; }
+  .scroll-x { overflow-x: auto; scrollbar-width: none; }
+  .scroll-x::-webkit-scrollbar { display: none; }
+  .done-text { text-decoration: line-through; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+</head>
+<body>
+<div id="root">
+  <div class="gutter" style="padding-block: 40px; color: var(--muted); font-family: monospace;">Načítám řídicí panel…</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/lucide-react@0.344.0/dist/umd/lucide-react.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+const LI = window.LucideReact || window.lucideReact || {};
+function Icon({ name, size = 16, ...p }) {
+  const C = LI[name];
+  return C ? <C size={size} strokeWidth={1.9} aria-hidden="true" {...p} /> : null;
+}
+
+/* ---------- storage ---------- */
+const KEY = 'rpdash.v1.';
+/* ---------- synchronizace přes Supabase ---------- */
+const CFG = window.RP_CONFIG || {};
+const SYNC_KEYS = ['events3', 'tests', 'tasks', 'shop', 'goals2', 'cal', 'icsUrl', 'calHidden'];
+const Sync = (() => {
+  const ls = {
+    get(k) { try { const r = localStorage.getItem(KEY + k); return r == null ? undefined : JSON.parse(r); } catch (e) { return undefined; } },
+    set(k, v) { try { localStorage.setItem(KEY + k, JSON.stringify(v)); } catch (e) {} },
+  };
+  const listeners = new Map(), statusFns = new Set(), timers = {};
+  let client = null, user = null, status = 'off', lastErr = '', channel = null, pulling = null;
+  let dirty = ls.get('__dirty') || {};
+  const setDirty = (k, on) => { if (on) dirty[k] = 1; else delete dirty[k]; ls.set('__dirty', dirty); };
+  const setStatus = (s, err) => { status = s; lastErr = err || ''; statusFns.forEach(f => f({ status, user, err: lastErr })); };
+  const emit = (k, v) => { ls.set(k, v); (listeners.get(k) || []).forEach(f => f(v)); };
+
+  async function push(k) {
+    if (!client || !user) return false;
+    const value = ls.get(k);
+    if (value === undefined) { setDirty(k, false); return true; }
+    const { error } = await client.from('kv').upsert({ user_id: user.id, key: k, value, updated_at: new Date().toISOString() }, { onConflict: 'user_id,key' });
+    if (error) { setStatus('error', error.message); return false; }
+    setDirty(k, false);
+    if (!Object.keys(dirty).length) setStatus('ok');
+    return true;
+  }
+  async function pullNow() {
+    if (!client || !user) return;
+    setStatus('syncing');
+    const { data, error } = await client.from('kv').select('key,value');
+    if (error) { setStatus('error', navigator.onLine ? error.message : 'Jsi offline. Změny se odešlou, až budeš online.'); return; }
+    const remote = new Map(data.map(r => [r.key, r.value]));
+    for (const k of SYNC_KEYS) {
+      if (dirty[k]) { await push(k); continue; }
+      if (remote.has(k)) emit(k, remote.get(k));
+      else if (ls.get(k) !== undefined) { setDirty(k, true); await push(k); }
+    }
+    if (status === 'syncing') setStatus('ok');
+  }
+  const pull = () => { if (!pulling) pulling = pullNow().finally(() => { pulling = null; }); return pulling; };
+  function subscribe() {
+    if (channel) client.removeChannel(channel);
+    channel = client.channel('kv-' + user.id)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kv', filter: 'user_id=eq.' + user.id }, p => {
+        const r = p.new;
+        if (r && SYNC_KEYS.includes(r.key) && !dirty[r.key]) emit(r.key, r.value);
+      })
+      .subscribe();
+  }
+  async function onUser(u) {
+    user = u;
+    if (!u) {
+      if (channel) { client.removeChannel(channel); channel = null; }
+      setStatus('signedout'); return;
+    }
+    await pull(); subscribe();
+  }
+  function init() {
+    if (!CFG.supabaseUrl || !CFG.supabaseKey || !window.supabase) { setStatus('off'); return; }
+    client = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
+    setStatus('signedout');
+    client.auth.getSession().then(({ data }) => onUser(data.session ? data.session.user : null));
+    client.auth.onAuthStateChange((ev, session) => {
+      const u = session ? session.user : null;
+      if ((u && u.id) !== (user && user.id)) onUser(u);
+    });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && user) pull(); });
+    window.addEventListener('online', () => { if (user) pull(); });
+  }
+  return {
+    init, pull,
+    get client() { return client; },
+    get user() { return user; },
+    on(k, f) { if (!listeners.has(k)) listeners.set(k, new Set()); listeners.get(k).add(f); return () => listeners.get(k).delete(f); },
+    onStatus(f) { statusFns.add(f); f({ status, user, err: lastErr }); return () => statusFns.delete(f); },
+    changed(k) {
+      if (!SYNC_KEYS.includes(k) || !user) return;
+      setDirty(k, true); setStatus('syncing');
+      clearTimeout(timers[k]); timers[k] = setTimeout(() => push(k), 800);
+    },
+    async token() { if (!client) return null; const { data } = await client.auth.getSession(); return data.session ? data.session.access_token : null; },
+  };
+})();
+Sync.init();
+
+function useSyncStatus() {
+  const [s, setS] = useState({ status: 'off', user: null, err: '' });
+  useEffect(() => Sync.onStatus(setS), []);
+  return s;
+}
+
+function SyncChip({ onClick }) {
+  const { status } = useSyncStatus();
+  const map = {
+    off: ['', 'HardDrive', 'Jen v tomto zařízení'],
+    signedout: ['chip-mid', 'LogIn', 'Přihlásit'],
+    syncing: ['', 'RefreshCw', 'Synchronizuji…'],
+    ok: ['chip-ok', 'Cloud', 'Synchronizováno'],
+    error: ['chip-hi', 'CloudOff', 'Nesynchronizováno'],
+  };
+  const [cls, icon, txt] = map[status] || map.off;
+  return <button type="button" className={'chip ' + cls} style={{ padding: '6px 11px' }} onClick={onClick}><Icon name={icon} size={13} />{txt}</button>;
+}
+
+function AccountPanel() {
+  const { status, user, err } = useSyncStatus();
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const run = async fn => { setBusy(true); setMsg(''); try { await fn(); } finally { setBusy(false); } };
+  const signIn = e => { e.preventDefault(); run(async () => {
+    const { error } = await Sync.client.auth.signInWithPassword({ email: email.trim(), password: pw });
+    if (error) setMsg(/confirm/i.test(error.message) ? 'Nejdřív potvrď e‑mail. Odkaz ti přišel do schránky.' : 'Přihlášení se nepovedlo. Zkontroluj e‑mail a heslo.');
+  }); };
+  const signUp = () => run(async () => {
+    if (pw.length < 8) { setMsg('Heslo musí mít aspoň 8 znaků.'); return; }
+    const { data, error } = await Sync.client.auth.signUp({ email: email.trim(), password: pw, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) setMsg('Účet se nepodařilo vytvořit: ' + error.message);
+    else if (!data.session) setMsg('Hotovo. Potvrď e‑mail přes odkaz ve schránce a pak se tady přihlas.');
+  });
+
+  if (status === 'off') {
+    return <p className="text-sm text-muted">Synchronizace zatím není nastavená. Data se ukládají jen v tomto zařízení. Do souboru <code className="font-mono">config.js</code> je potřeba doplnit adresu a klíč ze Supabase.</p>;
+  }
+  if (!user) {
+    return (
+      <form onSubmit={signIn} className="flex flex-col gap-3 text-sm">
+        <p className="text-muted">Přihlas se stejným účtem na Macu, iPadu i iPhonu a všude uvidíš stejná data.</p>
+        <label className="flex flex-col gap-1"><span className="label">E‑mail</span>
+          <input id="acc-email" type="email" autoComplete="email" className="field" value={email} onChange={e => setEmail(e.target.value)} required /></label>
+        <label className="flex flex-col gap-1"><span className="label">Heslo</span>
+          <input id="acc-pw" type="password" autoComplete="current-password" className="field" value={pw} onChange={e => setPw(e.target.value)} required /></label>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn btn-primary" type="submit" disabled={busy}><Icon name="LogIn" size={14} />Přihlásit</button>
+          <button className="btn" type="button" disabled={busy || !email || !pw} onClick={signUp}>Vytvořit účet</button>
+        </div>
+        {msg && <p style={{ color: 'var(--accent)' }}>{msg}</p>}
+      </form>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3 text-sm">
+      <div className="flex items-center gap-2"><Icon name="UserCheck" size={16} className="text-ok" />Přihlášen jako <b className="break-all">{user.email}</b></div>
+      <div className="text-muted">{status === 'ok' ? 'Všechno je synchronizované.' : status === 'syncing' ? 'Synchronizuji…' : status === 'error' ? 'Poslední synchronizace selhala: ' + err : ''}</div>
+      <div className="flex flex-wrap gap-2">
+        <button className="btn" type="button" onClick={() => Sync.pull()}><Icon name="RefreshCw" size={14} />Synchronizovat teď</button>
+        <button className="btn" type="button" onClick={() => Sync.client.auth.signOut()}><Icon name="LogOut" size={14} />Odhlásit</button>
+      </div>
+    </div>
+  );
+}
+
+function usePersist(key, init) {
+  const [v, setV] = useState(() => {
+    try { const r = localStorage.getItem(KEY + key); if (r != null) return JSON.parse(r); } catch (e) {}
+    return typeof init === 'function' ? init() : init;
+  });
+  const cur = useRef(v), first = useRef(true), fromRemote = useRef(false);
+  cur.current = v;
+  useEffect(() => Sync.on(key, val => {
+    if (JSON.stringify(val) !== JSON.stringify(cur.current)) { fromRemote.current = true; setV(val); }
+  }), [key]);
+  useEffect(() => {
+    try { localStorage.setItem(KEY + key, JSON.stringify(v)); } catch (e) {}
+    if (first.current) { first.current = false; return; }
+    if (fromRemote.current) { fromRemote.current = false; return; }
+    Sync.changed(key);
+  }, [key, v]);
+  return [v, setV];
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+/* ---------- dates ---------- */
+const pad = n => String(n).padStart(2, '0');
+const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const TODAY = toISO(new Date());
+const diffDays = s => Math.round((parse(s) - parse(TODAY)) / 864e5);
+const fmtDate = s => s ? parse(s).toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' }) : '';
+const fmtShort = s => s ? parse(s).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' }) : '';
+const fmtDay = s => parse(s).toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long' });
+const dny = n => { const a = Math.abs(n); return a === 1 ? 'den' : (a >= 2 && a <= 4 ? 'dny' : 'dní'); };
+function isoWeek(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t - y0) / 864e5 + 1) / 7);
+}
+const kc = n => (Number(n) || 0).toLocaleString('cs-CZ') + ' Kč';
+
+/* Google Calendar: celodenní událost, konec je v URL exkluzivní (den po posledním dni) */
+const ymd = s => s.replace(/-/g, '');
+const plusDay = s => { const d = parse(s); d.setDate(d.getDate() + 1); return toISO(d); };
+function gcalUrl({ title, date, end, details, from, to }) {
+  let dates;
+  if (from && to) {
+    const hhmm = t => t.replace(':', '') + '00';
+    dates = ymd(date) + 'T' + hhmm(from) + '/' + ymd(to <= from ? plusDay(date) : date) + 'T' + hhmm(to);
+  } else {
+    const last = end && end >= date ? end : date;
+    dates = ymd(date) + '/' + ymd(plusDay(last));
+  }
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+    + '&text=' + encodeURIComponent(title)
+    + '&dates=' + dates
+    + '&details=' + encodeURIComponent(details || 'Přidáno z Řídicího panelu R.P.')
+    + '&ctz=Europe%2FPrague';
+}
+function readOld(key) {
+  try { const r = localStorage.getItem(KEY + key); return r ? JSON.parse(r) : null; } catch (e) { return null; }
+}
+
+/* ---------- seed data ---------- */
+function nextFriday() {
+  const d = parse(TODAY); const add = (5 - d.getDay() + 7) % 7; d.setDate(d.getDate() + add); return toISO(d);
+}
+const SEED_EVENTS = [];
+
+const TASK_CATS = [
+  { id: 'skola', label: 'Škola / Projekt', icon: 'GraduationCap' },
+  { id: 'osobni', label: 'Osobní život', icon: 'User' },
+  { id: 'resell', label: 'Resell & Vinted', icon: 'Recycle' },
+  { id: 'video', label: 'Videotvorba / Vlogy', icon: 'Video' },
+];
+const PRIO = {
+  high: { label: 'Vysoká', cls: 'chip-hi', rank: 0 },
+  mid: { label: 'Střední', cls: 'chip-mid', rank: 1 },
+  low: { label: 'Nízká', cls: 'chip-lo', rank: 2 },
+};
+const SEED_TASKS = [];
+
+const SHOP_CATS = [
+  { id: 'tech', label: 'Technika a videotvorba', icon: 'Camera' },
+  { id: 'proj', label: 'Projekt a díly', icon: 'Cpu' },
+  { id: 'osobni', label: 'Osobní nákupy / Oblečení', icon: 'Shirt' },
+];
+const SHOP_STATUS = [
+  { id: 'now', label: 'Koupit teď' },
+  { id: 'wait', label: 'Čeká na cashflow' },
+  { id: 'bought', label: 'Koupeno' },
+];
+const SEED_SHOP = [];
+
+const GOAL_CATS = [
+  { id: 'skilly', label: 'Cvičení & skilly', filter: 'Sport/Skill', icon: 'Dumbbell' },
+  { id: 'zazitky', label: 'Zážitky & cestování', filter: 'Zážitky', icon: 'Mountain' },
+  { id: 'video', label: 'Peníze, byznys & videotvorba', filter: 'Peníze & Video', icon: 'Briefcase' },
+  { id: 'lucka', label: 'Přítelkyně (Lucka) & vztahy', filter: 'Vztah', icon: 'Heart' },
+  { id: 'skola', label: 'Škola & maturita', filter: 'Škola', icon: 'GraduationCap' },
+  { id: 'material', label: 'Materiální cíle', filter: 'Materiální', icon: 'Gem' },
+  { id: 'rodina', label: 'Osobní, životní styl & rodina', filter: 'Rodina', icon: 'Home' },
+];
+const GOAL_SEED_RAW = Object.fromEntries(GOAL_CATS.map(c => [c.id, []]));
+let goalNo = 0;
+const SEED_GOALS = GOAL_CATS.flatMap(c => GOAL_SEED_RAW[c.id].map((title, i) =>
+  ({ id: 'g2-' + c.id + '-' + i, n: ++goalNo, title, cat: c.id, status: 'todo', custom: false })));
+function initGoals() {
+  const old = readOld('goals') || [];
+  const st = new Map(old.map(g => [g.title.toLowerCase(), g.status]));
+  return [...SEED_GOALS.map(g => ({ ...g, status: st.get(g.title.toLowerCase()) || 'todo' })), ...old.filter(g => g.custom)];
+}
+function initEvents() {
+  const old = readOld('events2') || readOld('events') || [];
+  const ids = new Set(SEED_EVENTS.map(e => e.id));
+  const merged = SEED_EVENTS.map(sd => { const o = old.find(x => x.id === sd.id); return o ? { ...sd, ...o, cat: o.cat || sd.cat, from: o.from || sd.from, to: o.to || sd.to } : sd; });
+  return [...merged, ...old.filter(e => !ids.has(e.id))];
+}
+
+const PREDMETY = [
+  'Anglický jazyk',
+  'Automatizace',
+  'Cizí jazyk odborný',
+  'Český jazyk a literatura',
+  'Elektrotechnika a elektronika',
+  'Matematika',
+  'Německý jazyk',
+  'Praxe',
+  'Projekt',
+  'Technická měření a diagnostika',
+  'Technické vybavení budov',
+  'Tělesná výchova',
+  'Základy společenských věd',
+];
+/* váha: číslo 5–80; starší testy mají 'hi' / 'mid' / 'lo' */
+function weightInfo(w) {
+  if (typeof w === 'number') return { cls: w >= 40 ? 'chip-hi' : w >= 20 ? 'chip-mid' : 'chip-lo', short: 'Váha ' + w, label: String(w) };
+  return WEIGHTS.find(x => x.id === w) || WEIGHTS[1];
+}
+const testTitle = t => t.topic ? `${t.subject} – ${t.topic}` : t.subject;
+const clampW = v => Math.min(80, Math.max(5, Math.round(Number(v) || 5)));
+const WEIGHTS = [
+  { id: 'hi', label: 'Velký test / vysoká váha', cls: 'chip-hi', short: 'Váha ↑' },
+  { id: 'mid', label: 'Běžný test', cls: 'chip-mid', short: 'Váha =' },
+  { id: 'lo', label: 'Malý test / zkoušení', cls: 'chip-lo', short: 'Váha ↓' },
+];
+
+/* ---------- shared bits ---------- */
+function SectionHead({ icon, title, children }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+      <h2 className="font-display text-xl font-semibold flex items-center gap-2"><span className="text-accent"><Icon name={icon} size={18} /></span>{title}</h2>
+      {children}
+    </div>
+  );
+}
+function Seg({ value, onChange, options }) {
+  return (
+    <div className="seg" role="group">
+      {options.map(o => <button key={o.id} type="button" aria-pressed={value === o.id} onClick={() => onChange(o.id)}>{o.label}</button>)}
+    </div>
+  );
+}
+function Empty({ icon, children }) {
+  return (
+    <div className="card border-dashed p-6 text-center text-muted flex flex-col items-center gap-2">
+      <Icon name={icon} size={22} />
+      <div className="text-sm max-w-sm">{children}</div>
+    </div>
+  );
+}
+function Check({ on, onClick, label }) {
+  return (
+    <button type="button" className={'check ' + (on ? 'on' : '')} onClick={onClick} aria-label={label} aria-pressed={on}>
+      {on && <Icon name="Check" size={14} strokeWidth={3} />}
+    </button>
+  );
+}
+
+function GCalButton({ title, date, end, details, from, to }) {
+  const inner = <><Icon name="CalendarPlus" size={13} /><span className="hidden sm:inline">Přidat do Google Kalendáře</span><span className="sm:hidden">Google Kalendář</span></>;
+  if (!date) return <span className="gcal off" title="Nejdřív doplň datum">{inner}</span>;
+  return <a className="gcal" href={gcalUrl({ title, date, end, details, from, to })} target="_blank" rel="noopener noreferrer" aria-label={'Přidat do Google Kalendáře: ' + title}>{inner}</a>;
+}
+
+/* ---------- 1. Timeline & tests ---------- */
+function countdown(ev) {
+  if (!ev.date) return { big: '—', unit: '', note: 'Doplň datum' };
+  const d = diffDays(ev.date);
+  if (ev.end) {
+    const e = diffDays(ev.end);
+    if (d <= 0 && e >= 0) return { big: String(1 - d), unit: '. den', note: `probíhá, zbývá ${e} ${dny(e)}`, live: true };
+    if (e < 0) return { big: '✓', unit: '', note: 'proběhlo', past: true };
+  }
+  if (d === 0) return { big: 'DNES', unit: '', note: 'je to tady', live: true };
+  if (d === 1) return { big: 'ZÍTRA', unit: '', note: 'zbývá 1 den', live: true };
+  if (d < 0) return { big: '✓', unit: '', note: 'proběhlo', past: true };
+  return { big: String(d), unit: dny(d), note: 'zbývá' };
+}
+
+function EventCard({ ev, onChange, onDelete }) {
+  const [edit, setEdit] = useState(!ev.date);
+  const c = countdown(ev);
+  const soon = ev.date && diffDays(ev.date) >= 0 && diffDays(ev.date) <= 7;
+  return (
+    <div className={'card p-4 flex flex-col gap-3 ' + (soon || c.live ? 'hot' : '')} style={c.past ? { opacity: .55 } : null}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 text-muted"><Icon name={ev.icon || 'CalendarDays'} size={16} /><span className="label">{ev.end ? 'Vícedenní' : 'Událost'}</span></div>
+        <div className="flex -mr-2 -mt-1">
+          <button className="icon-btn" onClick={() => setEdit(!edit)} aria-label="Upravit datum"><Icon name="Pencil" size={14} /></button>
+          <button className="icon-btn danger" onClick={onDelete} aria-label="Smazat událost"><Icon name="Trash2" size={14} /></button>
+        </div>
+      </div>
+      <div className="font-display font-semibold text-[17px] leading-snug min-w-0">{ev.title}</div>
+      <div className="flex items-baseline gap-2 mt-auto">
+        <span className={'font-display font-bold tnum leading-none ' + (c.big.length > 3 ? 'text-3xl' : 'text-5xl') + (soon || c.live ? ' text-accent' : '')}>{c.big}</span>
+        <span className="text-muted text-sm">{c.unit}</span>
+      </div>
+      <div className="text-xs text-muted font-mono">{c.note}{ev.date && <> · {fmtShort(ev.date)}{ev.end ? '–' + fmtShort(ev.end) : ''}{ev.from ? ` · ${ev.from}–${ev.to}` : ''}</>}</div>
+      {!c.past && <div><GCalButton title={ev.title} date={ev.date} end={ev.end} from={ev.from} to={ev.to} /></div>}
+      {edit && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="flex flex-col gap-1"><span className="label">Od</span>
+            <input id={'ev-d-' + ev.id} type="date" className="field" value={ev.date} onChange={e => onChange({ ...ev, date: e.target.value })} /></label>
+          <label className="flex flex-col gap-1"><span className="label">Do (volitelné)</span>
+            <input id={'ev-e-' + ev.id} type="date" className="field" value={ev.end || ''} onChange={e => onChange({ ...ev, end: e.target.value })} /></label>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlanTab({ events, setEvents, tests, setTests }) {
+  const [newEv, setNewEv] = useState({ title: '', date: '' });
+  const [f, setF] = useState({ subject: '', date: '', weight: 10 });
+
+  const sortedEvents = useMemo(() => [...events].sort((a, b) => {
+    const ka = a.date ? (diffDays(a.end || a.date) < 0 ? 1e6 : diffDays(a.date)) : 5e5;
+    const kb = b.date ? (diffDays(b.end || b.date) < 0 ? 1e6 : diffDays(b.date)) : 5e5;
+    return ka - kb;
+  }), [events]);
+
+  const addEvent = e => {
+    e.preventDefault();
+    if (!newEv.title.trim()) return;
+    setEvents([...events, { id: uid(), title: newEv.title.trim(), date: newEv.date, icon: 'CalendarDays' }]);
+    setNewEv({ title: '', date: '' });
+  };
+  const addTest = e => {
+    e.preventDefault();
+    if (!f.subject || !f.date) return;
+    setTests([...tests, { id: uid(), subject: f.subject, topic: '', date: f.date, weight: clampW(f.weight), done: false }]);
+    setF({ ...f, subject: '', date: '' });
+  };
+
+  const open = tests.filter(t => !t.done).sort((a, b) => a.date.localeCompare(b.date));
+  const done = tests.filter(t => t.done).sort((a, b) => b.date.localeCompare(a.date));
+  const groups = [];
+  open.forEach(t => {
+    const g = groups[groups.length - 1];
+    if (g && g.date === t.date) g.items.push(t); else groups.push({ date: t.date, items: [t] });
+  });
+
+  return (
+    <div className="flex flex-col gap-10">
+      <section>
+        <SectionHead icon="Timer" title="Odpočet klíčových událostí" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {sortedEvents.map(ev => (
+            <EventCard key={ev.id} ev={ev}
+              onChange={n => setEvents(events.map(x => x.id === ev.id ? n : x))}
+              onDelete={() => setEvents(events.filter(x => x.id !== ev.id))} />
+          ))}
+        </div>
+        <form onSubmit={addEvent} className="mt-3 flex flex-wrap gap-2">
+          <input id="ev-new-title" className="field flex-1" style={{ minWidth: 180 }} placeholder="Nová událost (např. Předávka zakázky)" value={newEv.title} onChange={e => setNewEv({ ...newEv, title: e.target.value })} />
+          <input id="ev-new-date" type="date" className="field" style={{ width: 'auto' }} value={newEv.date} onChange={e => setNewEv({ ...newEv, date: e.target.value })} />
+          <button className="btn" type="submit"><Icon name="Plus" size={15} />Přidat událost</button>
+        </form>
+      </section>
+
+      <section>
+        <SectionHead icon="GraduationCap" title="Školní testy a zkoušení">
+          <span className="label">{open.length} před tebou · {done.length} napsáno</span>
+        </SectionHead>
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+          <form onSubmit={addTest} className="card p-4 flex flex-col gap-4 self-start">
+            <div className="label">Rychle přidat test</div>
+            <label className="flex flex-col gap-1"><span className="label">Předmět</span>
+              <select id="t-subject" className="field" value={f.subject} onChange={e => setF({ ...f, subject: e.target.value })}>
+                <option value="" disabled>Vyberte předmět…</option>
+                {PREDMETY.map(p => <option key={p} value={p}>{p}</option>)}
+              </select></label>
+            <label className="flex flex-col gap-1"><span className="label">Datum testu</span>
+              <input id="t-date" type="date" className="field" value={f.date} onChange={e => setF({ ...f, date: e.target.value })} /></label>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="t-weight-range" className="label flex justify-between"><span>Váha známky</span><span className="text-accent font-bold tnum">{f.weight}</span></label>
+              <div className="flex items-center gap-3">
+                <input id="t-weight-range" type="range" min="5" max="80" step="5" value={f.weight} onChange={e => setF({ ...f, weight: Number(e.target.value) })} className="flex-1 min-w-0" style={{ accentColor: 'var(--accent)' }} />
+                <input id="t-weight" type="number" min="5" max="80" aria-label="Váha známky" className="field tnum text-center" style={{ width: 64 }} value={f.weight}
+                  onChange={e => setF({ ...f, weight: e.target.value === '' ? '' : Number(e.target.value) })} onBlur={() => setF(p => ({ ...p, weight: clampW(p.weight) }))} />
+              </div>
+            </div>
+            <button className="btn btn-primary justify-center" type="submit" disabled={!f.subject || !f.date} style={!f.subject || !f.date ? { opacity: .45, cursor: 'not-allowed' } : null}><Icon name="Plus" size={15} />Přidat test</button>
+          </form>
+
+          <div className="flex flex-col gap-5 min-w-0">
+            {groups.length === 0 && <Empty icon="CalendarCheck">Žádný test na obzoru. Přidej ho vlevo a seřadí se sem podle data. Testy na dnešek a zítřek se zvýrazní.</Empty>}
+            {groups.map(g => {
+              const d = diffDays(g.date);
+              const badge = d === 0 ? 'DNES' : d === 1 ? 'ZÍTRA' : d < 0 ? 'PROBĚHLO?' : null;
+              return (
+                <div key={g.date}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-display font-semibold capitalize">{fmtDay(g.date)}</span>
+                    {badge ? <span className={'chip ' + (d < 0 ? 'chip-hi' : 'chip-solid')}>{badge}</span>
+                      : <span className="label">za {d} {dny(d)}</span>}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {g.items.map(t => {
+                      const w = weightInfo(t.weight);
+                      return (
+                        <div key={t.id} className={'card p-3 flex items-center gap-3 ' + (d >= 0 && d <= 1 ? 'hot' : '')}>
+                          <Check on={false} onClick={() => setTests(tests.map(x => x.id === t.id ? { ...x, done: true } : x))} label="Označit jako napsaný" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium break-words">{testTitle(t)}</div>
+                            <div className="flex flex-wrap gap-1.5 mt-1"><span className={'chip ' + w.cls}>{w.short}</span>
+                              <GCalButton title={`Test: ${testTitle(t)}`} date={t.date} details={`Předmět: ${t.subject}${t.topic ? `\nTéma: ${t.topic}` : ''}\nVáha: ${w.label}`} /></div>
+                          </div>
+                          <button className="icon-btn danger" onClick={() => setTests(tests.filter(x => x.id !== t.id))} aria-label="Smazat test"><Icon name="Trash2" size={15} /></button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            {done.length > 0 && (
+              <details className="card p-3">
+                <summary className="cursor-pointer label">Napsané testy ({done.length})</summary>
+                <div className="flex flex-col gap-2 mt-3">
+                  {done.map(t => (
+                    <div key={t.id} className="flex items-center gap-3">
+                      <Check on onClick={() => setTests(tests.map(x => x.id === t.id ? { ...x, done: false } : x))} label="Vrátit mezi nenapsané" />
+                      <span className="flex-1 min-w-0 done-text text-sm">{testTitle(t)} · {fmtShort(t.date)}</span>
+                      <button className="icon-btn danger" onClick={() => setTests(tests.filter(x => x.id !== t.id))} aria-label="Smazat test"><Icon name="Trash2" size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ---------- 2. To-do ---------- */
+function TodoTab({ tasks, setTasks }) {
+  const [cat, setCat] = useState('all');
+  const [status, setStatus] = useState('active');
+  const [f, setF] = useState({ text: '', cat: 'skola', due: '', prio: 'mid' });
+
+  const add = e => {
+    e.preventDefault();
+    if (!f.text.trim()) return;
+    setTasks([{ id: uid(), ...f, text: f.text.trim(), done: false }, ...tasks]);
+    setF({ ...f, text: '', due: '' });
+  };
+  const list = tasks
+    .filter(t => cat === 'all' || t.cat === cat)
+    .filter(t => status === 'all' || (status === 'active' ? !t.done : t.done))
+    .sort((a, b) => (a.done - b.done) || (PRIO[a.prio].rank - PRIO[b.prio].rank) || ((a.due || '9999').localeCompare(b.due || '9999')));
+  const counts = Object.fromEntries(TASK_CATS.map(c => [c.id, tasks.filter(t => t.cat === c.id && !t.done).length]));
+  const urgent = tasks.filter(t => !t.done && t.due && diffDays(t.due) <= 1).length;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SectionHead icon="ListTodo" title="Co teď dělat">
+        <span className="label">{tasks.filter(t => !t.done).length} aktivních · {urgent} hoří (dnes/zítra/po termínu)</span>
+      </SectionHead>
+
+      <form onSubmit={add} className="card p-4 grid gap-3 md:grid-cols-[1fr_auto_auto_auto_auto] items-end">
+        <label className="flex flex-col gap-1 min-w-0"><span className="label">Úkol</span>
+          <input id="task-text" className="field" placeholder="Co je potřeba udělat?" value={f.text} onChange={e => setF({ ...f, text: e.target.value })} /></label>
+        <label className="flex flex-col gap-1"><span className="label">Kategorie</span>
+          <select id="task-cat" className="field" value={f.cat} onChange={e => setF({ ...f, cat: e.target.value })}>
+            {TASK_CATS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select></label>
+        <label className="flex flex-col gap-1"><span className="label">Termín</span>
+          <input id="task-due" type="date" className="field" value={f.due} onChange={e => setF({ ...f, due: e.target.value })} /></label>
+        <label className="flex flex-col gap-1"><span className="label">Priorita</span>
+          <select id="task-prio" className="field" value={f.prio} onChange={e => setF({ ...f, prio: e.target.value })}>
+            {Object.entries(PRIO).map(([k, p]) => <option key={k} value={k}>{p.label}</option>)}
+          </select></label>
+        <button className="btn btn-primary justify-center" type="submit"><Icon name="Plus" size={15} />Přidat</button>
+      </form>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="scroll-x max-w-full">
+          <div className="flex gap-2 w-max">
+            <button className={'chip ' + (cat === 'all' ? 'chip-solid' : '')} style={{ padding: '6px 12px' }} onClick={() => setCat('all')}>Vše</button>
+            {TASK_CATS.map(c => (
+              <button key={c.id} className={'chip ' + (cat === c.id ? 'chip-solid' : '')} style={{ padding: '6px 12px' }} onClick={() => setCat(c.id)}>
+                <Icon name={c.icon} size={13} />{c.label}<span className="opacity-70">{counts[c.id]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <Seg value={status} onChange={setStatus} options={[{ id: 'all', label: 'Všechny' }, { id: 'active', label: 'Aktivní' }, { id: 'done', label: 'Dokončené' }]} />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {list.length === 0 && <Empty icon="CheckCircle2">{status === 'done' ? 'Zatím nic dokončeného v tomhle filtru.' : 'Tady je čisto. Přidej úkol nahoře.'}</Empty>}
+        {list.map(t => {
+          const c = TASK_CATS.find(x => x.id === t.cat);
+          const d = t.due ? diffDays(t.due) : null;
+          const dueCls = t.done ? '' : d !== null && d < 0 ? 'chip-hi' : d !== null && d <= 1 ? 'chip-mid' : '';
+          const dueTxt = d === null ? null : d === 0 ? 'DNES' : d === 1 ? 'ZÍTRA' : d < 0 ? `po termínu ${-d} ${dny(d)}` : fmtShort(t.due);
+          return (
+            <div key={t.id} className="card p-3 flex items-center gap-3" style={t.done ? { opacity: .65 } : null}>
+              <Check on={t.done} onClick={() => setTasks(tasks.map(x => x.id === t.id ? { ...x, done: !x.done } : x))} label={t.done ? 'Označit jako nehotové' : 'Označit jako hotové'} />
+              <div className="flex-1 min-w-0">
+                <div className={'break-words ' + (t.done ? 'done-text' : 'font-medium')}>{t.text}</div>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  <span className="chip"><Icon name={c.icon} size={12} />{c.label}</span>
+                  <span className={'chip ' + PRIO[t.prio].cls}>{PRIO[t.prio].label}</span>
+                  {dueTxt && <span className={'chip ' + dueCls}><Icon name="Clock" size={12} />{dueTxt}</span>}
+                  {!t.done && <GCalButton title={t.text} date={t.due} details={`Kategorie: ${c.label}\nPriorita: ${PRIO[t.prio].label}`} />}
+                </div>
+              </div>
+              <button className="icon-btn danger" onClick={() => setTasks(tasks.filter(x => x.id !== t.id))} aria-label="Smazat úkol"><Icon name="Trash2" size={15} /></button>
+            </div>
+          );
+        })}
+      </div>
+      {tasks.some(t => t.done) && (
+        <button className="btn self-start" onClick={() => setTasks(tasks.filter(t => !t.done))}><Icon name="Trash2" size={14} />Smazat dokončené</button>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 3. Shopping ---------- */
+function ShopTab({ shop, setShop }) {
+  const [f, setF] = useState({ name: '', cat: 'tech', price: '', must: true, status: 'now' });
+  const sum = st => shop.filter(i => st.includes(i.status)).reduce((s, i) => s + (Number(i.price) || 0), 0);
+  const planned = sum(['now', 'wait']), now = sum(['now']), wait = sum(['wait']), spent = sum(['bought']);
+  const add = e => {
+    e.preventDefault();
+    if (!f.name.trim()) return;
+    setShop([...shop, { id: uid(), ...f, name: f.name.trim(), price: Number(f.price) || 0 }]);
+    setF({ ...f, name: '', price: '' });
+  };
+  const upd = (id, patch) => setShop(shop.map(i => i.id === id ? { ...i, ...patch } : i));
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SectionHead icon="ShoppingCart" title="Nákupní seznam & budget" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          ['Celkem plánováno', planned, 'text-fg', 'Vše, co ještě není koupené'],
+          ['Koupit teď', now, 'text-accent', 'Potřebuju hned'],
+          ['Čeká na cashflow', wait, 'text-teal', 'Až přijde zakázka'],
+          ['Už utraceno', spent, 'text-ok', 'Označeno jako koupené'],
+        ].map(([l, v, cls, hint]) => (
+          <div key={l} className="card p-4">
+            <div className="label">{l}</div>
+            <div className={'font-display font-bold text-2xl tnum mt-1 ' + cls}>{kc(v)}</div>
+            <div className="text-xs text-muted mt-1">{hint}</div>
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={add} className="card p-4 grid gap-3 md:grid-cols-[1fr_auto_130px_auto_auto_auto] items-end">
+        <label className="flex flex-col gap-1 min-w-0"><span className="label">Název</span>
+          <input id="shop-name" className="field" placeholder="např. Gimbal, SD karta 256 GB" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></label>
+        <label className="flex flex-col gap-1"><span className="label">Kategorie</span>
+          <select id="shop-cat" className="field" value={f.cat} onChange={e => setF({ ...f, cat: e.target.value })}>
+            {SHOP_CATS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select></label>
+        <label className="flex flex-col gap-1"><span className="label">Cena (Kč)</span>
+          <input id="shop-price" type="number" min="0" inputMode="numeric" className="field tnum" placeholder="0" value={f.price} onChange={e => setF({ ...f, price: e.target.value })} /></label>
+        <label className="flex flex-col gap-1"><span className="label">Priorita</span>
+          <select id="shop-must" className="field" value={f.must ? 'm' : 'n'} onChange={e => setF({ ...f, must: e.target.value === 'm' })}>
+            <option value="m">Must-have</option><option value="n">Nice-to-have</option>
+          </select></label>
+        <label className="flex flex-col gap-1"><span className="label">Stav</span>
+          <select id="shop-status" className="field" value={f.status} onChange={e => setF({ ...f, status: e.target.value })}>
+            {SHOP_STATUS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+          </select></label>
+        <button className="btn btn-primary justify-center" type="submit"><Icon name="Plus" size={15} />Přidat</button>
+      </form>
+      <p className="text-xs text-muted -mt-3">Ceny u předvyplněných položek jsou orientační odhad. Klikni do ceny a přepiš ji.</p>
+
+      {SHOP_CATS.map(c => {
+        const items = shop.filter(i => i.cat === c.id).sort((a, b) => (a.status === 'bought') - (b.status === 'bought') || (b.must - a.must));
+        const sub = items.filter(i => i.status !== 'bought').reduce((s, i) => s + (Number(i.price) || 0), 0);
+        return (
+          <section key={c.id}>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h3 className="font-display font-semibold flex items-center gap-2"><Icon name={c.icon} size={16} />{c.label}</h3>
+              <span className="label tnum">zbývá {kc(sub)}</span>
+            </div>
+            {items.length === 0 ? <Empty icon="Package">Prázdné. Přidej věc formulářem nahoře.</Empty> : (
+              <div className="flex flex-col gap-2">
+                {items.map(i => (
+                  <div key={i.id} className="card p-3 flex flex-wrap items-center gap-x-3 gap-y-2" style={i.status === 'bought' ? { opacity: .6 } : null}>
+                    <div className="flex-1 min-w-[160px]">
+                      <div className={'font-medium break-words ' + (i.status === 'bought' ? 'done-text' : '')}>{i.name}</div>
+                      <button type="button" className={'chip mt-1 ' + (i.must ? 'chip-hi' : 'chip-lo')} onClick={() => upd(i.id, { must: !i.must })} title="Přepnout prioritu">
+                        {i.must ? 'Must-have' : 'Nice-to-have'}
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input id={'price-' + i.id} type="number" min="0" inputMode="numeric" aria-label={'Cena ' + i.name} className="field tnum text-right" style={{ width: 110 }} value={i.price} onChange={e => upd(i.id, { price: Number(e.target.value) || 0 })} />
+                      <span className="text-muted text-sm">Kč</span>
+                    </div>
+                    <Seg value={i.status} onChange={v => upd(i.id, { status: v })} options={SHOP_STATUS} />
+                    <button className="icon-btn danger" onClick={() => setShop(shop.filter(x => x.id !== i.id))} aria-label="Smazat položku"><Icon name="Trash2" size={15} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- 4. Bucket list ---------- */
+const GOAL_STATUS = [
+  { id: 'todo', label: 'Nesplněno' },
+  { id: 'active', label: 'V řešení' },
+  { id: 'done', label: 'Splněno' },
+];
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+function BucketTab({ goals, setGoals }) {
+  const [filter, setFilter] = useState('Vše');
+  const [view, setView] = useState('all');
+  const [q, setQ] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [f, setF] = useState({ title: '', cat: 'zazitky' });
+  const total = goals.length, doneN = goals.filter(g => g.status === 'done').length, activeN = goals.filter(g => g.status === 'active').length;
+  const pct = total ? Math.round(doneN / total * 100) : 0;
+  const filters = ['Vše', ...GOAL_CATS.map(c => c.filter)];
+  const setStatus = (id, s) => setGoals(goals.map(g => g.id === id ? { ...g, status: s } : g));
+  const add = e => {
+    e.preventDefault();
+    if (!f.title.trim()) return;
+    setGoals([...goals, { id: uid(), title: f.title.trim(), cat: f.cat, status: 'todo', custom: true }]);
+    setF({ ...f, title: '' }); setAdding(false);
+  };
+  const nq = norm(q.trim());
+  const order = { active: 0, todo: 1, done: 2 };
+  const sections = GOAL_CATS.filter(c => filter === 'Vše' || c.filter === filter).map(c => {
+    const all = goals.filter(g => g.cat === c.id);
+    const items = all.filter(g => view === 'all' || g.status === view)
+      .filter(g => !nq || norm(g.title).includes(nq))
+      .sort((a, b) => order[a.status] - order[b.status] || (a.n || 999) - (b.n || 999));
+    return { c, all, items };
+  }).filter(s => s.items.length > 0 || (view === 'all' && !nq));
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="card p-5 relative overflow-hidden">
+        <div className="absolute inset-0 grid-bg pointer-events-none" />
+        <div className="relative flex flex-col gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 className="font-display text-2xl font-bold flex items-center gap-2"><span className="text-accent"><Icon name="Target" size={22} /></span>Bucket List</h2>
+            <button className="btn btn-primary" onClick={() => setAdding(!adding)}><Icon name={adding ? 'X' : 'Plus'} size={15} />{adding ? 'Zavřít' : 'Přidat cíl'}</button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[['Celkem cílů', total, ''], ['Splněno', doneN, 'text-ok'], ['V řešení', activeN, 'text-accent'], ['Dokončeno', pct + ' %', 'text-teal']].map(([l, v, cls]) => (
+              <div key={l}><div className="label">{l}</div><div className={'font-display font-bold text-3xl tnum ' + cls}>{v}</div></div>
+            ))}
+          </div>
+          <div className="bar" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100"><span style={{ width: pct + '%' }} /></div>
+          {adding && (
+            <form onSubmit={add} className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+              <input id="goal-title" autoFocus className="field" placeholder="Nový cíl" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} />
+              <select id="goal-cat" className="field" value={f.cat} onChange={e => setF({ ...f, cat: e.target.value })}>
+                {GOAL_CATS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+              <button className="btn btn-primary justify-center" type="submit">Uložit cíl</button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="search flex-1" style={{ minWidth: 200 }}>
+            <Icon name="Search" size={15} />
+            <input id="goal-search" type="search" className="field" placeholder="Hledat cíl" value={q} onChange={e => setQ(e.target.value)} aria-label="Hledat v cílech" />
+          </label>
+          <Seg value={view} onChange={setView} options={[{ id: 'all', label: 'Všechny' }, ...GOAL_STATUS]} />
+        </div>
+        <div className="scroll-x max-w-full">
+          <div className="flex gap-2 w-max">
+            {filters.map(x => <button key={x} className={'chip ' + (filter === x ? 'chip-solid' : '')} style={{ padding: '6px 12px' }} onClick={() => setFilter(x)}>{x}</button>)}
+          </div>
+        </div>
+      </div>
+
+      {sections.length === 0 && <Empty icon="SearchX">Žádný cíl neodpovídá hledání a filtru. Zkus jiné slovo nebo přepni na „Všechny“.</Empty>}
+
+      <div className="grid gap-4 lg:grid-cols-2 items-start">
+        {sections.map(({ c, all, items }) => {
+          const cDone = all.filter(g => g.status === 'done').length;
+          return (
+            <section key={c.id} className="card p-4 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h3 className="font-display font-semibold flex items-center gap-2"><span className="text-accent"><Icon name={c.icon} size={16} /></span>{c.label}</h3>
+                <span className="label tnum">{cDone}/{all.length}</span>
+              </div>
+              <div className="bar mb-2" style={{ height: 4 }}><span style={{ width: (all.length ? cDone / all.length * 100 : 0) + '%' }} /></div>
+              <ul className="flex flex-col">
+                {items.map(g => (
+                  <li key={g.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2 border-t border-line first:border-t-0">
+                    <span className="font-mono text-xs text-muted tnum w-6 text-right flex-none">{g.n || '+'}</span>
+                    <span className={'flex-1 min-w-[150px] break-words ' + (g.status === 'done' ? 'done-text' : g.status === 'active' ? 'text-accent font-medium' : '')}>{g.title}</span>
+                    <div className="flex items-center gap-1 ml-9 sm:ml-0">
+                      <div className="seg seg-sm">
+                        {GOAL_STATUS.map(s => <button key={s.id} type="button" aria-pressed={g.status === s.id} onClick={() => setStatus(g.id, s.id)}>{s.label}</button>)}
+                      </div>
+                      {g.custom && <button className="icon-btn danger" onClick={() => setGoals(goals.filter(x => x.id !== g.id))} aria-label="Smazat cíl"><Icon name="X" size={14} /></button>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 0. Týdenní kalendář ---------- */
+const GC = 'Google Calendar';
+const CAL_CATS = [
+  { id: 'navyky', label: 'Opakované návyky', color: '#039be5', g: '7' },
+  { id: 'vztahy', label: 'Vztahy', color: '#b80672', g: '4' },
+  { id: 'penize', label: 'Peníze', color: '#0b8043', g: '10' },
+  { id: 'vv', label: 'Vertical Vision', color: '#8e24aa', g: '3' },
+  { id: 'trenink', label: 'Tréninky', color: '#f6bf26', g: '5', dark: true },
+  { id: 'spont', label: 'Spontánní události', color: '#616161', g: '8' },
+  { id: 'skola', label: 'Škola & Projekt', color: '#3f51b5', g: '9' },
+  { id: 'content', label: 'Content', color: '#d50000', g: '11' },
+  { id: 'narozeniny', label: 'Narozeniny / Svátek', color: '#33b679', g: '2' },
+];
+const GCOLOR = Object.fromEntries(CAL_CATS.map(c => [c.g, c.id]));
+const catOf = id => CAL_CATS.find(c => c.id === id) || CAL_CATS[5];
+const catStyle = id => { const c = catOf(id); return { background: c.color, color: c.dark ? '#1f1a05' : '#fff' }; };
+function guessCat(title, colorId) {
+  if (colorId && GCOLOR[colorId]) return GCOLOR[colorId];
+  const t = norm(title || '');
+  if (/narozenin|svatek|jmeniny/.test(t)) return 'narozeniny';
+  if (/skola|test|maturit|zkous|projekt|resers|ucen/.test(t)) return 'skola';
+  if (/trenin|kalistenik|posilovn|plavan|beh\b|hrazd/.test(t)) return 'trenink';
+  if (/vertical|vv\b|natacen|zakazk|klient|strih/.test(t)) return 'vv';
+  if (/content|vlog|reel|tiktok|instagram|video/.test(t)) return 'content';
+  if (/lucka|rande/.test(t)) return 'vztahy';
+  if (/faktur|vyplat|penize|vinted|resell/.test(t)) return 'penize';
+  return 'navyky';
+}
+
+const CAL_START = 6, CAL_END = 24, HOUR_PX = 44, MPX = HOUR_PX / 60;
+const addDays = (iso, n) => { const d = parse(iso); d.setDate(d.getDate() + n); return toISO(d); };
+const mondayOf = iso => { const d = parse(iso); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return toISO(d); };
+const daysBetween = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
+const fmtHM = ms => { const d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const toMs = (iso, hmStr) => new Date(`${iso}T${hmStr}:00`).getTime();
+const isoLocal = ms => { const d = new Date(ms); return `${toISO(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`; };
+const itemKey = x => `${x.title.trim().toLowerCase()}|${x.allDay ? x.d1 : toISO(new Date(x.s)) + '|' + fmtHM(x.s)}`;
+
+function timedItem(base, s, e) { return { ...base, allDay: false, s, e: e > s ? e : s + 3600e3 }; }
+function fromLocal(c) {
+  const base = { key: 'c-' + c.id, id: c.id, title: c.title, cat: c.cat, src: 'local', raw: c };
+  if (c.allDay || !c.from) return { ...base, allDay: true, d1: c.date, d2: c.date };
+  let e = c.to ? toMs(c.date, c.to) : 0; const s = toMs(c.date, c.from);
+  if (c.to && e <= s) e += 864e5;
+  return timedItem(base, s, e);
+}
+function fromMilestone(m) {
+  if (!m.date) return null;
+  const base = { key: 'm-' + m.id, title: m.title, cat: m.cat || 'skola', src: 'milestone', raw: m };
+  if (m.from && m.to) return timedItem(base, toMs(m.date, m.from), toMs(m.date, m.to));
+  return { ...base, allDay: true, d1: m.date, d2: m.end && m.end >= m.date ? m.end : m.date };
+}
+function fromTest(t) {
+  return { key: 't-' + t.id, title: `Test: ${testTitle(t)}`, cat: 'skola', src: 'test', allDay: true, d1: t.date, d2: t.date };
+}
+function fromGoogle(g) {
+  if (!g || g.status === 'cancelled' || !g.start) return null;
+  const title = g.summary || '(bez názvu)';
+  const base = { key: 'g-' + g.id, title, cat: guessCat(title, g.colorId), src: 'google', link: g.htmlLink };
+  if (g.start.date) {
+    const d1 = g.start.date.slice(0, 10);
+    const d2 = g.end && g.end.date ? addDays(g.end.date.slice(0, 10), -1) : d1;
+    return { ...base, allDay: true, d1, d2: d2 < d1 ? d1 : d2 };
+  }
+  const s = new Date(g.start.dateTime).getTime();
+  if (isNaN(s)) return null;
+  return timedItem(base, s, new Date((g.end && g.end.dateTime) || g.start.dateTime).getTime());
+}
+
+/* ---------- .ics parser (Google Kalendář export / tajná adresa iCal) ---------- */
+function icsDate(v, params) {
+  if (/VALUE=DATE(;|$)/i.test(params || '') || /^\d{8}$/.test(v)) return { allDay: true, iso: `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}` };
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
+  if (!m) return null;
+  const a = m.slice(1, 7).map(Number);
+  const d = m[7] ? new Date(Date.UTC(a[0], a[1] - 1, a[2], a[3], a[4], a[5])) : new Date(a[0], a[1] - 1, a[2], a[3], a[4], a[5]);
+  return { allDay: false, ms: d.getTime() };
+}
+function icsDur(v) {
+  const m = (v || '').match(/P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?/);
+  if (!m) return 0;
+  const [w, d, h, mi, s] = m.slice(1).map(x => +x || 0);
+  return ((w * 7 + d) * 86400 + h * 3600 + mi * 60 + s) * 1000;
+}
+function icsExpand(ds, rr, winStart, winEnd) {
+  const r = Object.fromEntries(rr.split(';').map(p => p.split('=')));
+  const iv = +r.INTERVAL || 1, count = r.COUNT ? +r.COUNT : Infinity;
+  const u = r.UNTIL ? icsDate(r.UNTIL, '') : null;
+  const end = Math.min(u ? (u.allDay ? parse(u.iso).getTime() + 864e5 - 1 : u.ms) : Infinity, winEnd);
+  const start = ds.allDay ? parse(ds.iso) : new Date(ds.ms);
+  const out = []; let n = 0, guard = 0;
+  const emit = d => { if (d.getTime() >= winStart) out.push(ds.allDay ? toISO(d) : d.getTime()); };
+  const DAYS = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+  if (r.FREQ === 'WEEKLY' && r.BYDAY) {
+    const wd = r.BYDAY.split(',').map(x => DAYS[x.slice(-2)]).filter(x => x != null).sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+    const wk = new Date(start); wk.setDate(wk.getDate() - ((wk.getDay() + 6) % 7));
+    while (guard++ < 3000) {
+      for (const w of wd) {
+        const d = new Date(wk); d.setDate(d.getDate() + ((w + 6) % 7));
+        if (d < start) continue;
+        if (d.getTime() > end || n >= count) return out;
+        emit(d); n++;
+      }
+      wk.setDate(wk.getDate() + 7 * iv);
+    }
+    return out;
+  }
+  const d = new Date(start);
+  while (guard++ < 40000) {
+    if (d.getTime() > end || n >= count) break;
+    emit(new Date(d)); n++;
+    if (r.FREQ === 'DAILY') d.setDate(d.getDate() + iv);
+    else if (r.FREQ === 'WEEKLY') d.setDate(d.getDate() + 7 * iv);
+    else if (r.FREQ === 'MONTHLY') d.setMonth(d.getMonth() + iv);
+    else if (r.FREQ === 'YEARLY') d.setFullYear(d.getFullYear() + iv);
+    else break;
+  }
+  return out;
+}
+function parseICS(text) {
+  const lines = text.replace(/\r\n?/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  const evs = []; let cur = null;
+  const unesc = v => v.replace(/\\n/gi, ' ').replace(/\\([,;\\])/g, '$1').trim();
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { cur = { ex: [] }; continue; }
+    if (line === 'END:VEVENT') { if (cur) evs.push(cur); cur = null; continue; }
+    if (!cur) continue;
+    const i = line.indexOf(':'); if (i < 0) continue;
+    const [name, ...ps] = line.slice(0, i).split(';');
+    const params = ';' + ps.join(';'), val = line.slice(i + 1);
+    switch (name.toUpperCase()) {
+      case 'SUMMARY': cur.title = unesc(val); break;
+      case 'DTSTART': cur.ds = icsDate(val, params); break;
+      case 'DTEND': cur.de = icsDate(val, params); break;
+      case 'DURATION': cur.dur = val; break;
+      case 'RRULE': cur.rr = val; break;
+      case 'UID': cur.uid = val; break;
+      case 'STATUS': cur.status = val.toUpperCase(); break;
+      case 'RECURRENCE-ID': cur.rid = icsDate(val, params); break;
+      case 'EXDATE': val.split(',').forEach(x => { const d = icsDate(x, params); if (d) cur.ex.push(d.allDay ? d.iso : d.ms); }); break;
+    }
+  }
+  const overrides = {};
+  evs.forEach(e => { if (e.rid && e.uid) (overrides[e.uid] = overrides[e.uid] || new Set()).add(e.rid.allDay ? e.rid.iso : e.rid.ms); });
+  const winStart = Date.now() - 60 * 864e5, winEnd = Date.now() + 400 * 864e5;
+  const out = [];
+  evs.forEach((e, ei) => {
+    if (!e.ds || e.status === 'CANCELLED') return;
+    const title = e.title || '(bez názvu)', cat = guessCat(title);
+    const skip = new Set([...e.ex, ...(!e.rid && overrides[e.uid] ? overrides[e.uid] : [])]);
+    const starts = e.rr && !e.rid ? icsExpand(e.ds, e.rr, winStart, winEnd) : [e.ds.allDay ? e.ds.iso : e.ds.ms];
+    if (e.ds.allDay) {
+      const span = e.de && e.de.allDay ? Math.max(0, daysBetween(e.ds.iso, e.de.iso) - 1) : 0;
+      starts.forEach((iso, k) => {
+        if (skip.has(iso)) return;
+        const t = parse(iso).getTime(); if (t < winStart - span * 864e5 || t > winEnd) return;
+        out.push({ key: `i-${ei}-${k}`, title, cat, src: 'ics', allDay: true, d1: iso, d2: addDays(iso, span) });
+      });
+    } else {
+      const dur = e.de && !e.de.allDay ? e.de.ms - e.ds.ms : (icsDur(e.dur) || 3600e3);
+      starts.forEach((ms, k) => {
+        if (skip.has(ms) || ms < winStart || ms > winEnd) return;
+        out.push({ key: `i-${ei}-${k}`, title, cat, src: 'ics', allDay: false, s: ms, e: ms + Math.max(dur, 15 * 6e4) });
+      });
+    }
+  });
+  return out.slice(0, 4000);
+}
+
+/* ---------- sync helpers ---------- */
+function syncArgs(x) {
+  return x.allDay ? { title: x.title, date: x.d1, end: x.d2 }
+    : { title: x.title, date: toISO(new Date(x.s)), from: fmtHM(x.s), to: fmtHM(x.e) };
+}
+function createInput(x) {
+  const colorId = catOf(x.cat).g;
+  return x.allDay
+    ? { summary: x.title, startTime: x.d1 + 'T00:00:00', endTime: plusDay(x.d2) + 'T00:00:00', allDay: true, colorId, description: 'Přidáno z Řídicího panelu R.P.' }
+    : { summary: x.title, startTime: isoLocal(x.s), endTime: isoLocal(x.e), colorId, description: 'Přidáno z Řídicího panelu R.P.' };
+}
+function mcpErrText(e, write) {
+  const c = e && e.code;
+  if (c === 'needs_reauth') return 'Google Kalendář je potřeba znovu připojit v claude.ai → Nastavení → Konektory.';
+  if (c === 'server_not_connected') return 'Google Kalendář není připojený. Přidej ho v claude.ai → Nastavení → Konektory.';
+  if (c === 'selection_required') return 'Máš připojených víc Google Kalendářů. Vyber jeden ve výzvě claude.ai.';
+  if (c === 'approval_required' || c === 'not_in_manifest') return 'Stránka nemá tvoje povolení pro Google Kalendář.';
+  if (c === 'blocked_by_policy') return 'Přístup ke Google Kalendáři z téhle stránky je zakázaný.';
+  if (c === 'tool_error') return 'Google Kalendář požadavek odmítl.';
+  if (c === 'signin') return 'Přihlas se (vpravo nahoře), aby se mohl načítat tvůj Google Kalendář.';
+  if (c === 'fetch') return 'Kalendář se nepodařilo načíst. Zkontroluj tajnou adresu iCal a připojení k internetu.';
+  if (write) return 'Nevím jistě, jestli se událost uložila. Zkontroluj Google Kalendář, než to zkusíš znovu.';
+  return 'Google Kalendář teď neodpověděl.';
+}
+
+function SyncButtons({ x, mcp, push, onPush }) {
+  const st = push[x.key];
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <a className="gcal" href={gcalUrl(syncArgs(x))} target="_blank" rel="noopener noreferrer"><Icon name="CalendarPlus" size={13} />Synchronizovat do Google Kalendáře</a>
+      {mcp && (st === 'ok'
+        ? <span className="chip chip-ok"><Icon name="Check" size={12} />Uloženo v Google Kalendáři</span>
+        : <button type="button" className="gcal" disabled={st === 'busy'} onClick={() => onPush(x)}>
+            <Icon name={st === 'busy' ? 'Loader2' : 'Zap'} size={13} />{st === 'busy' ? 'Ukládám…' : 'Uložit rovnou (bez potvrzování)'}
+          </button>)}
+      {st && st !== 'ok' && st !== 'busy' && <span className="text-xs" style={{ color: 'var(--danger)' }}>{st}</span>}
+    </div>
+  );
+}
+
+function WeekTab({ cal, setCal, ics, setIcs, events, tests, mcp }) {
+  const [ws, setWs] = useState(mondayOf(TODAY));
+  const [hidden, setHidden] = usePersist('calHidden', []);
+  const [f, setF] = useState({ title: '', cat: 'skola', date: TODAY, mode: 'allday', from: '', to: '' });
+  const [saved, setSaved] = useState(null);
+  const [sel, setSel] = useState(null);
+  const [push, setPush] = useState({});
+  const [g, setG] = useState({ status: 'idle', items: [], at: null, code: null });
+  const [nonce, setNonce] = useState(0);
+  const [icsMsg, setIcsMsg] = useState('');
+  const [icsText, setIcsText] = useState('');
+  const [icsUrl, setIcsUrl] = usePersist('icsUrl', '');
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(ws, i)), [ws]);
+  const input = useMemo(() => ({ startTime: ws + 'T00:00:00', endTime: addDays(ws, 7) + 'T00:00:00', pageSize: 250, orderBy: 'startTime' }), [ws]);
+
+  const AUTHZ = ['needs_reauth', 'server_not_connected', 'blocked_by_policy', 'approval_required', 'not_in_manifest', 'selection_required', 'not_granted', 'capability_disabled', 'capability_removed'];
+  const handle = ev => {
+    if (ev.type === 'data') {
+      const p = ev.result && ev.result.payload;
+      const list = (p && p.events) || [];
+      setG({ status: 'ok', items: list.map(fromGoogle).filter(Boolean), at: (ev.result.cache && ev.result.cache.storedAt) || Date.now(), code: null });
+    } else {
+      const c = ev.error && ev.error.code;
+      setG(p => ({ status: 'error', code: c, items: AUTHZ.includes(c) ? [] : p.items, at: p.at }));
+    }
+  };
+  useEffect(() => {
+    if (!mcp) return;
+    setG({ status: 'loading', items: [], at: null, code: null });
+    let unsub = () => {};
+    try { unsub = mcp.watchTool(GC, 'list_events', input, handle, { refetchInterval: 300000 }); }
+    catch (e) { setG({ status: 'error', items: [], at: null, code: 'bad_request' }); }
+    return () => unsub();
+  }, [mcp, input, nonce]);
+  useEffect(() => {
+    if (mcp) return;
+    if (!/^https:\/\//.test(icsUrl) || !CFG.supabaseUrl) { setG({ status: 'idle', items: [], at: null, code: null }); return; }
+    let stop = false;
+    try { const c = JSON.parse(localStorage.getItem(KEY + 'icalCache') || 'null'); if (c && c.url === icsUrl) setG({ status: 'ok', items: c.items, at: c.at, code: null }); } catch (e) {}
+    const load = async () => {
+      setG(p => ({ ...p, status: p.items.length ? p.status : 'loading' }));
+      try {
+        const tok = await Sync.token();
+        if (!tok) { if (!stop) setG(p => ({ ...p, status: 'error', code: 'signin' })); return; }
+        const r = await fetch(CFG.supabaseUrl + '/functions/v1/ical?url=' + encodeURIComponent(icsUrl), { headers: { Authorization: 'Bearer ' + tok, apikey: CFG.supabaseKey } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const items = parseICS(await r.text()).map(x => ({ ...x, key: 'g' + x.key, src: 'google' }));
+        if (stop) return;
+        const at = Date.now();
+        setG({ status: 'ok', items, at, code: null });
+        try { localStorage.setItem(KEY + 'icalCache', JSON.stringify({ url: icsUrl, at, items })); } catch (e) {}
+      } catch (e) { if (!stop) setG(p => ({ ...p, status: 'error', code: 'fetch' })); }
+    };
+    load();
+    const t = setInterval(load, 600000);
+    const vis = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', vis);
+    const off = Sync.onStatus(st => { if (st.status === 'ok') load(); });
+    return () => { stop = true; clearInterval(t); document.removeEventListener('visibilitychange', vis); off(); };
+  }, [mcp, icsUrl, nonce]);
+  const approve = () => {
+    setG(p => ({ ...p, status: 'loading' }));
+    mcp.callTool(GC, 'list_events', input).then(r => handle({ type: 'data', result: r })).catch(e => handle({ type: 'error', error: e }));
+  };
+  const onPush = x => {
+    setPush(p => ({ ...p, [x.key]: 'busy' }));
+    mcp.callTool(GC, 'create_event', createInput(x))
+      .then(() => { setPush(p => ({ ...p, [x.key]: 'ok' })); mcp.invalidate(GC, 'list_events').catch(() => {}); })
+      .catch(e => setPush(p => ({ ...p, [x.key]: mcpErrText(e, true) })));
+  };
+
+  const all = useMemo(() => {
+    const keys = new Set(g.items.map(itemKey));
+    const loc = [...cal.map(fromLocal), ...events.map(fromMilestone), ...tests.filter(t => !t.done).map(fromTest), ...ics]
+      .filter(Boolean).filter(x => !keys.has(itemKey(x)));
+    return [...g.items, ...loc].filter(x => !hidden.includes(x.cat));
+  }, [g.items, cal, events, tests, ics, hidden]);
+
+  const we = days[6];
+  const allDay = useMemo(() => {
+    const list = all.filter(x => x.allDay && x.d2 >= ws && x.d1 <= we)
+      .map(x => ({ x, si: Math.max(0, daysBetween(ws, x.d1)), ei: Math.min(6, daysBetween(ws, x.d2)) }))
+      .sort((a, b) => a.si - b.si || (b.ei - b.si) - (a.ei - a.si));
+    const lanes = [];
+    list.forEach(it => { let l = lanes.findIndex(end => end < it.si); if (l < 0) { l = lanes.length; lanes.push(it.ei); } else lanes[l] = it.ei; it.lane = l; });
+    return { list, lanes: lanes.length };
+  }, [all, ws, we]);
+
+  const segsFor = iso => {
+    const d0 = parse(iso).getTime(), d1 = d0 + 864e5, lo = CAL_START * 60, hi = CAL_END * 60;
+    const segs = all.filter(x => !x.allDay && x.s < d1 && x.e > d0).map(x => ({
+      x, a: Math.max(lo, (Math.max(x.s, d0) - d0) / 6e4), b: Math.min(hi, (Math.min(x.e, d1) - d0) / 6e4),
+    })).filter(s => s.b > s.a).sort((p, q) => p.a - q.a || q.b - p.b);
+    let cluster = [], end = -1;
+    const flush = () => { const cols = []; cluster.forEach(s => { let c = cols.findIndex(e => e <= s.a); if (c < 0) { c = cols.length; cols.push(s.b); } else cols[c] = s.b; s.col = c; }); cluster.forEach(s => { s.n = cols.length; }); };
+    segs.forEach(s => { if (cluster.length && s.a >= end) { flush(); cluster = []; end = -1; } cluster.push(s); end = Math.max(end, s.b); });
+    if (cluster.length) flush();
+    return segs;
+  };
+
+  const save = e => {
+    e.preventDefault();
+    if (!f.title.trim() || !f.date) return;
+    const timed = f.mode === 'time' && f.from;
+    let to = f.to;
+    if (timed && !to) { const [h, m] = f.from.split(':').map(Number); to = pad(Math.min(23, h + 1)) + ':' + pad(m); }
+    const c = { id: uid(), title: f.title.trim(), cat: f.cat, date: f.date, allDay: !timed, from: timed ? f.from : '', to: timed ? to : '' };
+    setCal([...cal, c]);
+    setSaved(fromLocal(c)); setSel(null);
+    setWs(mondayOf(c.date));
+    setF({ ...f, title: '', from: '', to: '' });
+  };
+  const importText = text => {
+    try {
+      const items = parseICS(text);
+      if (!items.length) { setIcsMsg('V souboru nejsou žádné události v rozmezí 60 dní zpět až rok dopředu.'); return; }
+      setIcs(items); setIcsMsg(`Načteno ${items.length} událostí.`);
+    } catch (err) { setIcsMsg('Soubor se nepodařilo přečíst. Je to .ics export z Google Kalendáře?'); }
+  };
+
+  const weekLabel = `${parse(ws).getDate()}. ${parse(ws).getMonth() + 1}. – ${parse(we).getDate()}. ${parse(we).getMonth() + 1}. ${parse(we).getFullYear()}`;
+  const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+  const gStatus = mcp === undefined ? { cls: '', txt: 'Připojuji Google Kalendář…' }
+    : mcp === null ? (g.status === 'ok' ? { cls: 'chip-ok', txt: 'Google Kalendář · načteno ' + fmtHM(g.at) }
+      : g.status === 'error' ? { cls: 'chip-hi', txt: 'Google Kalendář · chyba' }
+      : g.status === 'loading' ? { cls: '', txt: 'Načítám Google Kalendář…' }
+      : { cls: '', txt: 'Google Kalendář nepropojený' })
+    : g.status === 'ok' ? { cls: 'chip-ok', txt: 'Google Kalendář · načteno ' + fmtHM(g.at) }
+    : g.status === 'error' ? { cls: 'chip-hi', txt: 'Google Kalendář · chyba' }
+    : { cls: '', txt: 'Načítám Google Kalendář…' };
+  const srcLabel = { google: 'Google Kalendář', local: 'Přidáno tady', milestone: 'Časová osa', test: 'Školní test', ics: 'Import .ics' };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <SectionHead icon="CalendarRange" title="Týdenní kalendář">
+        <span className={'chip ' + gStatus.cls}><Icon name="RefreshCw" size={12} />{gStatus.txt}</span>
+      </SectionHead>
+
+      {g.status === 'error' && (
+        <div className="card p-3 flex flex-wrap items-center gap-3 text-sm" style={{ borderColor: 'var(--danger)' }}>
+          <Icon name="AlertTriangle" size={16} className="text-danger" />
+          <span className="flex-1 min-w-0">{mcpErrText({ code: g.code })}</span>
+          {['approval_required', 'not_in_manifest'].includes(g.code) && <button className="btn" onClick={approve}>Povolit a načíst</button>}
+          {!AUTHZ.includes(g.code) && <button className="btn" onClick={() => setNonce(n => n + 1)}><Icon name="RefreshCw" size={14} />Zkusit znovu</button>}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {CAL_CATS.map(c => {
+          const off = hidden.includes(c.id);
+          return (
+            <button key={c.id} type="button" className="chip" style={{ padding: '5px 10px', opacity: off ? .45 : 1 }} aria-pressed={!off}
+              onClick={() => setHidden(off ? hidden.filter(x => x !== c.id) : [...hidden, c.id])} title={off ? 'Zobrazit' : 'Skrýt'}>
+              <span className="dot" style={{ background: c.color }} />{c.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {sel && (
+        <div className="card p-4 flex flex-col gap-3" style={{ borderColor: catOf(sel.cat).color }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 label"><span className="dot" style={{ background: catOf(sel.cat).color }} />{catOf(sel.cat).label} · {srcLabel[sel.src]}</div>
+              <div className="font-display font-semibold text-lg break-words">{sel.title}</div>
+              <div className="text-sm text-muted tnum">
+                {sel.allDay ? (sel.d1 === sel.d2 ? fmtDate(sel.d1) + ' · celý den' : fmtDate(sel.d1) + ' – ' + fmtDate(sel.d2))
+                  : fmtDate(toISO(new Date(sel.s))) + ' · ' + fmtHM(sel.s) + '–' + fmtHM(sel.e)}
+              </div>
+            </div>
+            <button className="icon-btn" onClick={() => setSel(null)} aria-label="Zavřít detail"><Icon name="X" size={16} /></button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {sel.src === 'google'
+              ? (sel.link && <a className="gcal" href={sel.link} target="_blank" rel="noopener noreferrer"><Icon name="ExternalLink" size={13} />Otevřít v Google Kalendáři</a>)
+              : <SyncButtons x={sel} mcp={mcp} push={push} onPush={onPush} />}
+            {sel.src === 'local' && <button className="btn" onClick={() => { setCal(cal.filter(c => c.id !== sel.id)); setSel(null); }}><Icon name="Trash2" size={14} />Smazat</button>}
+          </div>
+        </div>
+      )}
+
+      <div className="card overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b border-line">
+          <div className="font-display font-semibold tnum">{weekLabel} <span className="label ml-1">týden {isoWeek(parse(ws))}</span></div>
+          <div className="flex gap-1">
+            <button className="icon-btn" onClick={() => setWs(addDays(ws, -7))} aria-label="Předchozí týden"><Icon name="ChevronLeft" size={18} /></button>
+            <button className="btn" style={{ padding: '5px 10px' }} onClick={() => setWs(mondayOf(TODAY))}>Dnes</button>
+            <button className="icon-btn" onClick={() => setWs(addDays(ws, 7))} aria-label="Další týden"><Icon name="ChevronRight" size={18} /></button>
+          </div>
+        </div>
+        <div className="cal-scroll">
+          <div className="cal-inner">
+            <div className="cal-cols border-b border-line">
+              <div />
+              {days.map(d => {
+                const td = d === TODAY, dt = parse(d);
+                return (
+                  <div key={d} className="py-2 text-center border-l border-line">
+                    <div className="label" style={td ? { color: 'var(--accent)' } : null}>{dt.toLocaleDateString('cs-CZ', { weekday: 'short' })}</div>
+                    <div className={'font-display font-semibold text-lg tnum inline-grid place-items-center w-8 h-8 rounded-full ' + (td ? 'bg-accent' : '')} style={td ? { color: '#1a1205' } : null}>{dt.getDate()}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="cal-cols border-b border-line py-1" style={{ gridAutoRows: '22px', rowGap: 2, minHeight: 28 }}>
+              <div className="label self-center text-right pr-2" style={{ gridColumn: 1, gridRow: `1 / span ${Math.max(1, allDay.lanes)}`, fontSize: 10 }}>celý den</div>
+              {allDay.list.map(({ x, si, ei, lane }) => (
+                <button key={x.key} type="button" className="cal-ad" style={{ ...catStyle(x.cat), gridColumn: `${si + 2} / ${ei + 3}`, gridRow: lane + 1 }} onClick={() => setSel(x)} title={x.title}>
+                  {x.d1 < ws && '◂ '}{x.title}
+                </button>
+              ))}
+            </div>
+            <div className="cal-cols" style={{ height: (CAL_END - CAL_START) * HOUR_PX }}>
+              <div className="relative">
+                {Array.from({ length: CAL_END - CAL_START }, (_, i) => (
+                  <div key={i} className="absolute right-2 font-mono text-muted tnum" style={{ top: i * HOUR_PX - 7, fontSize: 10.5 }}>{i ? pad(CAL_START + i) + ':00' : ''}</div>
+                ))}
+              </div>
+              {days.map(d => (
+                <div key={d} className="cal-daycol" style={d === TODAY ? { background: 'rgba(255,178,46,.04)' } : null}>
+                  {segsFor(d).map(({ x, a, b, col, n }) => (
+                    <button key={x.key + d} type="button" className="cal-ev" onClick={() => setSel(x)} title={`${x.title} · ${fmtHM(x.s)}–${fmtHM(x.e)}`}
+                      style={{ ...catStyle(x.cat), top: (a - CAL_START * 60) * MPX, height: Math.max((b - a) * MPX - 1, 18), left: `calc(${col / n * 100}% + 1px)`, width: `calc(${100 / n}% - 2px)` }}>
+                      <div className="font-semibold truncate">{x.title}</div>
+                      {(b - a) >= 40 && <div className="opacity-85 tnum">{fmtHM(x.s)}–{fmtHM(x.e)}</div>}
+                    </button>
+                  ))}
+                  {d === TODAY && nowMin >= CAL_START * 60 && <div className="cal-now" style={{ top: (nowMin - CAL_START * 60) * MPX }} />}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
+        <form onSubmit={save} className="card p-4 flex flex-col gap-3">
+          <div className="label">Nová událost</div>
+          <label className="flex flex-col gap-1"><span className="label">Název události</span>
+            <input id="cal-title" className="field" placeholder="např. Schůzka s klientem" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 min-w-0"><span className="label flex items-center gap-1.5"><span className="dot" style={{ background: catOf(f.cat).color }} />Kategorie</span>
+              <select id="cal-cat" className="field" value={f.cat} onChange={e => setF({ ...f, cat: e.target.value })} style={{ borderLeft: `4px solid ${catOf(f.cat).color}` }}>
+                {CAL_CATS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select></label>
+            <label className="flex flex-col gap-1 min-w-0"><span className="label">Datum</span>
+              <input id="cal-date" type="date" className="field" value={f.date} onChange={e => setF({ ...f, date: e.target.value })} /></label>
+          </div>
+          <Seg value={f.mode} onChange={v => setF({ ...f, mode: v })} options={[{ id: 'allday', label: 'Celodenní událost' }, { id: 'time', label: 'Přesný čas' }]} />
+          {f.mode === 'time' && (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1"><span className="label">Od</span>
+                <input id="cal-from" type="time" step="900" className="field tnum" value={f.from} onChange={e => setF({ ...f, from: e.target.value })} /></label>
+              <label className="flex flex-col gap-1"><span className="label">Do</span>
+                <input id="cal-to" type="time" step="900" className="field tnum" value={f.to} onChange={e => setF({ ...f, to: e.target.value })} /></label>
+            </div>
+          )}
+          <p className="text-xs text-muted">Bez vyplněného času se událost uloží jako celodenní do horní lišty. S časem se vykreslí jako blok v hodinovém rozvrhu.</p>
+          <button className="btn btn-primary justify-center" type="submit"><Icon name="Plus" size={15} />Uložit událost</button>
+          {saved && (
+            <div className="rounded-lg p-3 flex flex-col gap-2" style={{ background: 'var(--panel2)', border: '1px solid var(--line)' }}>
+              <div className="text-sm"><Icon name="CheckCircle2" size={14} className="inline text-ok mr-1" />Uloženo: <b>{saved.title}</b></div>
+              <SyncButtons x={saved} mcp={mcp} push={push} onPush={onPush} />
+            </div>
+          )}
+        </form>
+
+        <div className="card p-4 flex flex-col gap-4">
+          <div className="label">Import z Google Kalendáře</div>
+          <div className="text-sm flex flex-col gap-1">
+            <div className="font-medium flex items-center gap-2"><Icon name="Zap" size={15} className="text-accent" />Živé napojení</div>
+            <p className="text-muted">{mcp ? 'Události z tvého Google Kalendáře se načítají samy pro zobrazený týden a obnovují se každých 5 minut. Barvy se berou z Google Kalendáře; u událostí bez barvy podle názvu.' : 'Vlož níže tajnou adresu iCal. Po přihlášení se kalendář načítá automaticky při otevření aplikace a každých 10 minut, na všech zařízeních.'}</p>
+          </div>
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="font-medium flex items-center gap-2"><Icon name="FileUp" size={15} className="text-teal" />Soubor .ics</div>
+            <input id="ics-file" type="file" accept=".ics,text/calendar" className="field" onChange={e => { const file = e.target.files && e.target.files[0]; if (file) file.text().then(importText); e.target.value = ''; }} />
+            <textarea id="ics-text" className="field font-mono" rows="3" placeholder="…nebo sem vlož obsah .ics (BEGIN:VCALENDAR…)" value={icsText} onChange={e => setIcsText(e.target.value)} />
+            <button className="btn self-start" type="button" disabled={!icsText.trim()} onClick={() => importText(icsText)}>Načíst vložený text</button>
+          </div>
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="font-medium flex items-center gap-2"><Icon name="Link" size={15} className="text-teal" />Tajná adresa ve formátu iCal</div>
+            <div className="flex gap-2">
+              <input id="ics-url" className="field" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" value={icsUrl} onChange={e => setIcsUrl(e.target.value)} />
+              {/^https:\/\//.test(icsUrl)
+                ? <a className="btn" href={icsUrl} target="_blank" rel="noopener noreferrer"><Icon name="Download" size={14} />Stáhnout</a>
+                : <span className="btn" style={{ opacity: .45 }}><Icon name="Download" size={14} />Stáhnout</span>}
+            </div>
+            <p className="text-xs text-muted">Najdeš ji v Google Kalendáři na webu: Nastavení → tvůj kalendář → Integrovat kalendář → Tajná adresa ve formátu iCal. Adresu nikomu neukazuj.</p>
+          </div>
+          {(icsMsg || ics.length > 0) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="text-muted">{icsMsg || `V kalendáři je ${ics.length} importovaných událostí.`}</span>
+              {ics.length > 0 && <button className="btn" type="button" onClick={() => { setIcs([]); setIcsMsg('Import smazán.'); }}><Icon name="Trash2" size={14} />Smazat import</button>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- záloha / přenos dat ---------- */
+function Modal({ title, onClose, children }) {
+  useEffect(() => {
+    const k = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto gutter" style={{ background: 'rgba(4,7,11,.72)', paddingTop: 'calc(env(safe-area-inset-top, 0px) + 48px)', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 32px)' }} onClick={onClose}>
+      <div className="card p-5 max-w-lg mx-auto flex flex-col gap-4" style={{ background: 'var(--panel)' }} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-xl font-semibold">{title}</h2>
+          <button className="icon-btn" onClick={onClose} aria-label="Zavřít"><Icon name="X" size={18} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const BACKUP_SKIP = ['ics', 'icalCache', 'tab'];
+function exportData() {
+  const data = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(KEY)) continue;
+      const short = k.slice(KEY.length);
+      if (short.startsWith('__') || BACKUP_SKIP.includes(short)) continue;
+      data[short] = JSON.parse(localStorage.getItem(k));
+    }
+  } catch (e) {}
+  return JSON.stringify({ app: 'ridici-panel-rp', v: 1, at: new Date().toISOString(), data });
+}
+
+function DataBackup({ allowImport }) {
+  const [out] = useState(exportData);
+  const [inp, setInp] = useState('');
+  const [msg, setMsg] = useState('');
+  const copy = e => {
+    const ta = document.getElementById('backup-out');
+    const sel = () => { if (ta) { ta.focus(); ta.select(); } };
+    try {
+      navigator.clipboard.writeText(out).then(() => setMsg('Zkopírováno do schránky.'), () => { sel(); setMsg('Text je označený, zkopíruj ho ručně (⌘C).'); });
+    } catch (err) { sel(); setMsg('Text je označený, zkopíruj ho ručně (⌘C).'); }
+  };
+  const doImport = () => {
+    let parsed;
+    try { parsed = JSON.parse(inp.trim()); } catch (e) { setMsg('Tohle není platná záloha. Vlož celý zkopírovaný text.'); return; }
+    if (!parsed || parsed.app !== 'ridici-panel-rp' || typeof parsed.data !== 'object') { setMsg('Tohle není záloha z Řídicího panelu.'); return; }
+    try {
+      const keys = Object.keys(parsed.data);
+      keys.forEach(k => localStorage.setItem(KEY + k, JSON.stringify(parsed.data[k])));
+      const dirty = {}; keys.forEach(k => { dirty[k] = 1; });
+      localStorage.setItem(KEY + '__dirty', JSON.stringify(dirty));
+    } catch (e) { setMsg('Data se nepodařilo uložit.'); return; }
+    location.reload();
+  };
+  return (
+    <div className="flex flex-col gap-4 text-sm">
+      <div className="flex flex-col gap-2">
+        <div className="font-medium">Exportovat data z tohoto zařízení</div>
+        <textarea id="backup-out" className="field font-mono" rows="4" readOnly value={out} onFocus={e => e.target.select()} />
+        <div className="flex items-center gap-3">
+          <button type="button" className="btn btn-primary" onClick={copy}><Icon name="Copy" size={14} />Kopírovat zálohu</button>
+          {!allowImport && msg && <span className="text-muted">{msg}</span>}
+        </div>
+      </div>
+      {allowImport && (
+        <div className="flex flex-col gap-2 border-t border-line pt-4">
+          <div className="font-medium">Importovat zálohu</div>
+          <p className="text-muted">Vlož text zkopírovaný z dashboardu v Claude. Přepíše úkoly, testy, nákupy, cíle i kalendář v aplikaci a po přihlášení je pošle na ostatní zařízení.</p>
+          <textarea id="backup-in" className="field font-mono" rows="4" placeholder='{"app":"ridici-panel-rp",…}' value={inp} onChange={e => setInp(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="btn" disabled={!inp.trim()} onClick={doImport}><Icon name="Upload" size={14} />Importovat</button>
+            {msg && <span className="text-muted">{msg}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- App ---------- */
+const TABS = [
+  { id: 'week', label: 'Týden', icon: 'CalendarRange' },
+  { id: 'plan', label: 'Časová osa & testy', icon: 'CalendarDays' },
+  { id: 'todo', label: 'Co teď dělat', icon: 'ListTodo' },
+  { id: 'shop', label: 'Nákupy & budget', icon: 'ShoppingCart' },
+  { id: 'bucket', label: 'Bucket List', icon: 'Target' },
+];
+
+function App() {
+  const [tab, setTab] = usePersist('tab', 'plan');
+  const [events, setEvents] = usePersist('events3', initEvents);
+  const [tests, setTests] = usePersist('tests', []);
+  const [tasks, setTasks] = usePersist('tasks', SEED_TASKS);
+  const [shop, setShop] = usePersist('shop', SEED_SHOP);
+  const [goals, setGoals] = usePersist('goals2', initGoals);
+  const [cal, setCal] = usePersist('cal', []);
+  const [ics, setIcs] = usePersist('ics', []);
+  const mcp = null;
+  const [panel, setPanel] = useState(false);
+
+  const next = useMemo(() => events.filter(e => e.date && diffDays(e.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0], [events]);
+  const nextTest = useMemo(() => tests.filter(t => !t.done && diffDays(t.date) >= 0).sort((a, b) => a.date.localeCompare(b.date))[0], [tests]);
+  const now = new Date();
+  const counts = {
+    plan: tests.filter(t => !t.done).length,
+    todo: tasks.filter(t => !t.done).length,
+    shop: shop.filter(i => i.status === 'now').length,
+    bucket: goals.filter(g => g.status === 'done').length + '/' + goals.length,
+  };
+
+  return (
+    <div className="min-h-screen">
+      <header className="sticky z-20 border-b border-line" style={{ top: 'env(safe-area-inset-top, 0px)', background: 'var(--bg)' }}>
+        <div className="gutter">
+          <div className="max-w-6xl mx-auto pt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+            <div className="min-w-0">
+              <div className="label">{now.toLocaleDateString('cs-CZ', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · týden {isoWeek(now)}</div>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight">Řídicí panel <span className="text-accent">R.P.</span></h1>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <SyncChip onClick={() => setPanel(true)} />
+              {next && (
+                <div className="card px-3 py-2 flex items-center gap-2 text-sm">
+                  <Icon name="Timer" size={15} className="text-accent" />
+                  <span className="text-muted">Nejblíž:</span><span className="font-medium">{next.title}</span>
+                  <span className="chip chip-solid tnum">{diffDays(next.date) === 0 ? 'DNES' : diffDays(next.date) === 1 ? 'ZÍTRA' : diffDays(next.date) + ' ' + dny(diffDays(next.date))}</span>
+                </div>
+              )}
+              {nextTest && (
+                <div className="card px-3 py-2 hidden md:flex items-center gap-2 text-sm">
+                  <Icon name="GraduationCap" size={15} className="text-teal" />
+                  <span className="font-medium">{nextTest.subject}</span><span className="text-muted">{fmtShort(nextTest.date)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <nav className="max-w-6xl mx-auto scroll-x" role="tablist">
+            <div className="flex w-max">
+              {TABS.map(t => (
+                <button key={t.id} role="tab" aria-selected={tab === t.id} className="tab" onClick={() => setTab(t.id)}>
+                  <Icon name={t.icon} size={16} />{t.label}{counts[t.id] != null && <span className="chip" style={{ padding: '0 7px' }}>{counts[t.id]}</span>}
+                </button>
+              ))}
+            </div>
+          </nav>
+        </div>
+      </header>
+
+      <main className="gutter" style={{ paddingBlock: '28px 64px' }}>
+        <div className="max-w-6xl mx-auto">
+          {tab === 'week' && <WeekTab cal={cal} setCal={setCal} ics={ics} setIcs={setIcs} events={events} tests={tests} mcp={mcp} />}
+          {tab === 'plan' && <PlanTab events={events} setEvents={setEvents} tests={tests} setTests={setTests} />}
+          {tab === 'todo' && <TodoTab tasks={tasks} setTasks={setTasks} />}
+          {tab === 'shop' && <ShopTab shop={shop} setShop={setShop} />}
+          {tab === 'bucket' && <BucketTab goals={goals} setGoals={setGoals} />}
+        </div>
+      </main>
+      {panel && <Modal title="Účet a synchronizace" onClose={() => setPanel(false)}><AccountPanel /><div className="border-t border-line pt-4"><DataBackup allowImport /></div></Modal>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<script>
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+
+</body>
+</html>
