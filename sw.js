@@ -1,5 +1,5 @@
 // Offline cache pro Řídicí panel. Při změně souborů zvyš VERZI.
-const VERZE = 'rp-v1';
+const VERZE = 'rp-v2';
 const SHELL = ['./', './index.html', './config.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-180.png'];
 const CDN = ['cdn.tailwindcss.com', 'cdnjs.cloudflare.com', 'unpkg.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
