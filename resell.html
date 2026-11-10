@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Resell tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Resell">
+<meta name="theme-color" content="#0a0f15">
+<link rel="manifest" href="resell.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: {
+        bg: 'var(--bg)', panel: 'var(--panel)', panel2: 'var(--panel2)', line: 'var(--line)',
+        fg: 'var(--fg)', muted: 'var(--muted)', accent: 'var(--accent)', teal: 'var(--teal)',
+        danger: 'var(--danger)', ok: 'var(--ok)'
+      },
+      fontFamily: {
+        display: ['"Chakra Petch"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        body: ['"IBM Plex Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+      }
+    } }
+  };
+</script>
+<style>
+  /* Layout: sticky header + tab rail, one 72rem column of instrument-panel modules. Single dark look by choice. */
+  :root {
+    --bg: #0a0f15;
+    --panel: #111821;
+    --panel2: #17212d;
+    --line: #233142;
+    --fg: #e4ebf2;
+    --muted: #8796aa;
+    --accent: #ffb22e;      /* signal amber */
+    --accent-soft: #2e2512;
+    --teal: #38d3c3;
+    --teal-soft: #0f2a2a;
+    --danger: #ff6a5c;
+    --danger-soft: #331816;
+    --ok: #5fd88a;
+    --ok-soft: #13291c;
+    color-scheme: dark;
+  }
+  html, body { background: var(--bg); color: var(--fg); }
+  body { margin: 0; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); -webkit-tap-highlight-color: transparent; }
+  body { font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+  .gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .grid-bg {
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 28px 28px; opacity: .18;
+  }
+  h1, h2, h3 { text-wrap: balance; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  .label { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  .field {
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 7px; color: var(--fg);
+    padding: 8px 10px; font-size: 14px; min-width: 0; width: 100%;
+  }
+  .field:focus { outline: none; border-color: var(--accent); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 7px; padding: 8px 12px;
+    font-weight: 600; font-size: 14px; border: 1px solid var(--line); background: var(--panel2); color: var(--fg);
+    transition: border-color .15s, background .15s, color .15s; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn-primary { background: var(--accent); color: #1a1205; border-color: var(--accent); }
+  .btn-primary:hover { filter: brightness(1.08); border-color: var(--accent); }
+  .icon-btn { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 7px; color: var(--muted); border: 1px solid transparent; flex: none; }
+  .icon-btn:hover { color: var(--fg); border-color: var(--line); background: var(--panel2); }
+  .icon-btn.danger:hover { color: var(--danger); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; font-family: "JetBrains Mono", monospace; letter-spacing: .02em; }
+  .chip-hi { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+  .chip-mid { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .chip-lo { color: var(--teal); border-color: #1f5a55; background: var(--teal-soft); }
+  .chip-ok { color: var(--ok); border-color: #2a6b43; background: var(--ok-soft); }
+  .chip-solid { background: var(--accent); color: #1a1205; border-color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { padding: 6px 11px; font-size: 13px; font-weight: 500; color: var(--muted); background: var(--panel); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--panel2); color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+  .tab { display: inline-flex; align-items: center; gap: 8px; padding: 12px 4px; margin-right: 20px; color: var(--muted); font-family: "Chakra Petch", sans-serif; font-weight: 600; font-size: 15px; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tab[aria-selected="true"] { color: var(--fg); border-color: var(--accent); }
+  .tab:hover { color: var(--fg); }
+  .hot { border-color: var(--accent); background: linear-gradient(90deg, var(--accent-soft), var(--panel) 60%); }
+  .check { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--muted); display: inline-grid; place-items: center; flex: none; color: #0a0f15; }
+  .check.on { background: var(--ok); border-color: var(--ok); }
+  .gcal { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; color: var(--teal); border: 1px solid #1f5a55; background: var(--teal-soft); white-space: nowrap; text-decoration: none; }
+  .gcal:hover { border-color: var(--teal); }
+  .gcal.off { opacity: .45; cursor: not-allowed; color: var(--muted); border-color: var(--line); background: transparent; }
+  .cal-scroll { overflow-x: auto; }
+  .cal-inner { min-width: 760px; }
+  .cal-cols { display: grid; grid-template-columns: 52px repeat(7, minmax(0, 1fr)); }
+  .cal-daycol { position: relative; border-left: 1px solid var(--line); background-image: repeating-linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 44px); }
+  .cal-ev { position: absolute; border-radius: 5px; padding: 2px 5px; font-size: 11.5px; line-height: 1.25; overflow: hidden; text-align: left; border: 1px solid var(--bg); }
+  .cal-ev:hover, .cal-ad:hover { filter: brightness(1.12); }
+  .cal-ad { border-radius: 4px; padding: 1px 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; margin: 0 1px; }
+  .cal-now { position: absolute; left: 0; right: 0; height: 2px; background: var(--danger); z-index: 2; }
+  .cal-now::before { content: ""; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex: none; }
+  button.gcal { cursor: pointer; }
+  button.gcal:disabled { opacity: .6; cursor: progress; }
+  .seg-sm button { padding: 4px 9px; font-size: 12px; }
+  .search { position: relative; }
+  .search .field { padding-left: 34px; }
+  .search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .bar { height: 8px; border-radius: 99px; background: var(--panel2); overflow: hidden; border: 1px solid var(--line); }
+  .bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--teal), var(--accent)); border-radius: 99px; transition: width .4s; }
+  .scroll-x { overflow-x: auto; scrollbar-width: none; }
+  .scroll-x::-webkit-scrollbar { display: none; }
+  .done-text { text-decoration: line-through; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+</head>
+<body>
+<div id="root">
+  <div class="gutter" style="padding-block: 40px; color: var(--muted); font-family: monospace;">Načítám…</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/lucide-react@0.344.0/dist/umd/lucide-react.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="resell.js"></script>
+<script>
+  ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(window.RPResell.StandaloneApp));
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
