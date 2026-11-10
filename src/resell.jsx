@@ -6,8 +6,22 @@ const BUCKET = "resell-photos";
 const SIZES = ["XS", "S", "M", "L", "XL"];
 const STATUSES = ["K prodeji", "Inzerováno", "Prodáno"];
 const PROMOS = ["Žádné", "Vinted", "Facebook"];
+const CONDITIONS = [
+  "Nový s visačkou",
+  "Nový / nenošený",
+  "Nošené, ale ve velmi dobrém stavu",
+  "Nošené, v dobrém stavu",
+  "S drobnou vadou (viz fotky)",
+];
 const ROLE_KEY = "rpresell.role";
 const CACHE_KEY = "rpresell.items";
+const FILTER_KEY = "rpresell.filter";
+const ARCHIVE_DAYS = 30; // po kolika dnech od prodeje jde věc do tabulky a smaže se jí fotka
+
+// Pevné části inzerátu. Změň tady a projeví se ve všech nových inzerátech.
+const LISTING_PROMO = "Mrkněte na slevy na sety 🔥🔥";
+const LISTING_SHIPPING =
+  "Posílám přes Zásilkovnu (+89 Kč) / AlzaBox (+54 Kč) / nebo osobní předání u metra Ládví, konkrétní dny metro Budějovická / dohoda.";
 
 const store = {
   get(k) {
@@ -57,6 +71,103 @@ function uniqueBrands(items) {
   return [...m.values()]
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "cs"))
     .map((e) => e.label);
+}
+
+// ---------- archiv ----------
+const localDate = (d = new Date()) => d.toLocaleDateString("sv");
+function archiveCutoff() {
+  const d = new Date();
+  d.setDate(d.getDate() - ARCHIVE_DAYS);
+  return localDate(d);
+}
+// Prodané před víc než měsícem (a starší prodeje bez data) patří do tabulky.
+const isArchived = (i, cutoff) => i.status === "Prodáno" && (!i.sold_at || i.sold_at <= cutoff);
+const shortDate = (iso) => (iso ? new Date(iso + "T12:00:00").toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric", year: "2-digit" }) : "—");
+
+// ---------- inzerát ----------
+const cap = (s) => (s ? s.charAt(0).toLocaleUpperCase("cs") + s.slice(1) : s);
+const cleanName = (s) => (s || "").replace(/\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+
+const TYPE_LINES = [
+  [/rolák/, "Skvěle doplní šatník v chladnějších dnech. Je z příjemného a hřejivého materiálu, který zajistí maximální pohodlí při celodenním nošení."],
+  [/mikin/, "Ideální na každý den i na chladnější večery. Měkký a příjemný materiál zajistí pohodlí při celodenním nošení."],
+  [/svetr/, "Zahřeje v chladných dnech a hodí se do práce, do školy i na volno."],
+  [/polo/, "Klasický střih s límečkem, hodí se na běžné nošení i do společnosti."],
+  [/košil/, "Hodí se do práce, na oslavu i na běžné nošení."],
+  [/šortk|kraťas/, "Ideální na běh, do posilovny nebo na běžné letní nošení. Lehký a rychleschnoucí materiál zajistí maximální pohodlí při každém pohybu."],
+  [/legín/, "Pružný materiál drží tvar a nikde neškrtí, ideální na cvičení i volný čas."],
+  [/top/, "Pohodlný na cvičení i na běžné nošení."],
+  [/trik|tričk/, "Lehký a příjemný materiál, dobře se nosí samotné i pod mikinu."],
+  [/bund|kabát/, "Spolehlivě ochrání před větrem a chladem a hodí se ke všemu."],
+  [/kalhot|teplák/, "Pohodlný střih na každý den."],
+];
+
+function listingTitle(f) {
+  const base = cap(cleanName(f.name)) || "Oblečení";
+  const brand = f.brand.trim();
+  return [base, brand && !base.toLowerCase().includes(brand.toLowerCase()) ? brand : "", f.size ? "vel. " + f.size : ""]
+    .filter(Boolean)
+    .join(" ");
+}
+
+// 4. pád pro „Prodám …“: mění se jen ženský rod (pánská mikina → pánskou mikinu),
+// mužský neživotný, střední rod i množné číslo zůstávají stejné.
+function accusative(phrase) {
+  const words = phrase.split(" ");
+  const last = words.length ? words[words.length - 1] : "";
+  if (!/[^aeiouyáéíóúůý]a$/i.test(last)) return phrase;
+  return words.map((w, i) => (i === words.length - 1 ? w.slice(0, -1) + "u" : w.replace(/á$/, "ou"))).join(" ");
+}
+
+// platform: "vinted" (předloha s rolákem) nebo "fb" (předloha s kraťasy)
+function listingText(f, platform) {
+  const name = cleanName(f.name).toLocaleLowerCase("cs");
+  const brand = f.brand.trim();
+  const isSet = /\bset\b|sada/.test(name);
+  const typeLine = (TYPE_LINES.find(([re]) => re.test(name)) || [null, "Pohodlný a dobře padnoucí kousek na každý den."])[1];
+  const setLine = isSet ? " Lze je zakoupit po jednom kusu nebo jako celou výhodnou sadu." : "";
+  const what = (name || "oblečení") + (brand ? " od značky " + brand : "");
+
+  const spec = [
+    ["Značka", brand],
+    ["Velikost", f.size],
+    ["Barva", f.color.trim()],
+    ["Materiál", f.material.trim()],
+    ["Střih", f.fit.trim()],
+    ["Stav", f.condition],
+  ].filter(([, v]) => v);
+
+  if (platform === "fb") {
+    const price = parse(f.listPrice);
+    return [
+      `Prodám ${accusative(name || "oblečení")}${brand ? " od značky " + brand : ""}. ${typeLine}${setLine}`,
+      "",
+      "Specifikace:",
+      ...spec.map(([k, v]) => `• ${k}: ${v}`),
+      "",
+      "📦 Doprava a cena:",
+      LISTING_SHIPPING,
+      price !== null ? `Cena: ${fmt.format(price)} Kč` : "Cena: … Kč",
+    ].join("\n");
+  }
+
+  // Vinted: dopravu i cenu řeší Vinted sám
+  return [`${cap(what)}. ${typeLine}${setLine}`, LISTING_PROMO, "", "Specifikace:", ...spec.map(([k, v]) => `${k}: ${v}`)].join("\n");
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const t = document.createElement("textarea");
+    t.value = text;
+    document.body.appendChild(t);
+    t.select();
+    const ok = document.execCommand("copy");
+    t.remove();
+    return ok;
+  }
 }
 
 const fmt = new Intl.NumberFormat("cs-CZ", { maximumFractionDigits: 2 });
@@ -362,10 +473,39 @@ function ItemForm({ item, client, brands, onClose }) {
     promo: item && num(item.promo_amount) ? toInput(item.promo_amount) : "",
     shipping: item && num(item.shipping) ? toInput(item.shipping) : "",
     boughtAt: item ? item.bought_at || "" : today(),
+    soldAt: item && item.sold_at ? item.sold_at : "",
+    color: (item && item.color) || "",
+    material: (item && item.material) || "",
+    fit: (item && item.fit) || "",
+    condition: (item && item.condition) || "",
+    listPrice: toInput(item && item.list_price),
   }));
   const set = (k) => (e) => {
-    setF((p) => ({ ...p, [k]: e.target.value }));
+    const value = e.target.value;
+    setF((p) => ({
+      ...p,
+      [k]: value,
+      // Při přepnutí na Prodáno se datum prodeje vyplní dnešním dnem
+      ...(k === "status" && value === "Prodáno" && !p.soldAt ? { soldAt: today() } : {}),
+    }));
     setError("");
+  };
+  // Inzerát: dokud ho neupravíš ručně, generuje se z polí formuláře
+  const [platform, setPlatform] = useState("vinted");
+  const [own, setOwn] = useState(() => ({
+    vinted: (item && item.listing_text) || null,
+    fb: (item && item.listing_fb_text) || null,
+  }));
+  const listingEdited = own[platform] !== null;
+  const [copied, setCopied] = useState("");
+  const listing = listingEdited ? own[platform] : listingText(f, platform);
+  const title = listingTitle(f);
+  const archived = !!item && isArchived({ status: f.status, sold_at: f.soldAt || null }, archiveCutoff());
+  const copy = async (what, text) => {
+    if (await copyText(text)) {
+      setCopied(what);
+      setTimeout(() => setCopied(""), 1500);
+    }
   };
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -408,7 +548,7 @@ function ItemForm({ item, client, brands, onClose }) {
     if (purchase === null) return "Vyplň nákupní cenu.";
     if (f.status === "Prodáno" && sale === null) return "U prodané položky vyplň prodejní cenu.";
     if (f.channel !== "Žádné" && parse(f.promo) === null) return "Vyplň částku za promo.";
-    if ([purchase, sale, parse(f.promo), parse(f.shipping)].some((n) => n !== null && (!Number.isFinite(n) || n < 0)))
+    if ([purchase, sale, parse(f.promo), parse(f.shipping), parse(f.listPrice)].some((n) => n !== null && (!Number.isFinite(n) || n < 0)))
       return "Částky musí být čísla od nuly výš.";
     if (!navigator.onLine) return "Jsi offline. Ulož to, až budeš připojený.";
     return null;
@@ -426,7 +566,8 @@ function ItemForm({ item, client, brands, onClose }) {
         newPath = await uploadPhoto(client, file);
       }
       setBusy("Ukládám…");
-      const photo_path = newPath || (photoRemoved ? null : oldPath);
+      // Prodané před víc než měsícem fotku nepotřebují
+      const photo_path = archived ? null : newPath || (photoRemoved ? null : oldPath);
       const data = {
         photo_path,
         name: f.name.trim(),
@@ -439,6 +580,14 @@ function ItemForm({ item, client, brands, onClose }) {
         promo_amount: f.channel === "Žádné" ? 0 : parse(f.promo),
         shipping: parse(f.shipping) || 0,
         bought_at: f.boughtAt || null,
+        sold_at: f.status === "Prodáno" ? f.soldAt || null : null,
+        color: f.color.trim(),
+        material: f.material.trim(),
+        fit: f.fit.trim(),
+        condition: f.condition,
+        list_price: parse(f.listPrice),
+        listing_text: own.vinted,
+        listing_fb_text: own.fb,
         updated_at: new Date().toISOString(),
       };
       const { error } = item
@@ -470,6 +619,10 @@ function ItemForm({ item, client, brands, onClose }) {
   return (
     <Sheet title={item ? "Upravit položku" : "Přidat položku"} onClose={() => onClose(false)}>
       <form onSubmit={save} noValidate className="flex flex-col gap-4">
+        {archived && (
+          <p className="text-sm text-muted">Prodáno před víc než {ARCHIVE_DAYS} dny, položka je v tabulce prodaných a fotka už je smazaná.</p>
+        )}
+        {!archived && (
         <div className="flex items-center gap-4">
           <div
             className="w-24 shrink-0 overflow-hidden rounded-lg grid place-items-center border border-line"
@@ -509,6 +662,7 @@ function ItemForm({ item, client, brands, onClose }) {
             )}
           </div>
         </div>
+        )}
 
         <div>
           <Field label="Značka">
@@ -542,8 +696,8 @@ function ItemForm({ item, client, brands, onClose }) {
           )}
         </div>
 
-        <Field label="Popis (nepovinné)">
-          <input className="field" value={f.name} placeholder="např. černá mikina" onChange={set("name")} />
+        <Field label="Druh oblečení">
+          <input className="field" value={f.name} placeholder="např. pánská šedá mikina" onChange={set("name")} />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -594,7 +748,84 @@ function ItemForm({ item, client, brands, onClose }) {
           <Field label="Koupeno">
             <input className="field" type="date" value={f.boughtAt} onChange={set("boughtAt")} />
           </Field>
+          {f.status === "Prodáno" && (
+            <Field label="Prodáno dne">
+              <input className="field" type="date" value={f.soldAt} onChange={set("soldAt")} />
+            </Field>
+          )}
         </div>
+
+        <details className="card p-4 flex flex-col gap-3" style={{ background: "var(--panel2)" }} open={!item || item.status !== "Prodáno"}>
+          <summary className="font-display font-semibold cursor-pointer">Inzerát na Vinted a Facebook</summary>
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <Field label="Barva">
+              <input className="field" value={f.color} placeholder="např. Šedá" onChange={set("color")} />
+            </Field>
+            <Field label="Cena na Facebooku (Kč)">
+              <input className="field tnum" type="number" min="0" step="any" inputMode="decimal" value={f.listPrice} onChange={set("listPrice")} />
+            </Field>
+            <Field label="Materiál">
+              <input className="field" value={f.material} placeholder="např. bavlna" onChange={set("material")} />
+            </Field>
+            <Field label="Střih">
+              <input className="field" value={f.fit} placeholder="např. s kapucí" onChange={set("fit")} />
+            </Field>
+          </div>
+          <div className="mt-3">
+            <Field label="Stav oblečení">
+              <select className="field" value={f.condition} onChange={set("condition")}>
+                <option value="">Neuvedeno</option>
+                {CONDITIONS.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <div className="seg mt-4" role="group" aria-label="Kam inzerát">
+            {[["vinted", "Vinted"], ["fb", "Facebook"]].map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={platform === k} onClick={() => setPlatform(k)}>
+                {label}
+                {own[k] !== null && <span className="text-muted"> (upraveno)</span>}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="text-sm text-muted">Název</span>
+            <button type="button" className="btn" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => copy("title", title)}>
+              <Ico name={copied === "title" ? "Check" : "Copy"} size={13} />
+              {copied === "title" ? "Zkopírováno" : "Kopírovat"}
+            </button>
+          </div>
+          <p className="field mt-1" style={{ whiteSpace: "normal" }}>{title}</p>
+
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="text-sm text-muted">{listingEdited ? "Popis (upravený ručně)" : "Popis (vytváří se z polí)"}</span>
+            <div className="flex gap-2">
+              {listingEdited && (
+                <button type="button" className="btn" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => setOwn((o) => ({ ...o, [platform]: null }))}>
+                  <Ico name="RotateCcw" size={13} />
+                  Vytvořit znovu
+                </button>
+              )}
+              <button type="button" className="btn btn-primary" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => copy("text", listing)}>
+                <Ico name={copied === "text" ? "Check" : "Copy"} size={13} />
+                {copied === "text" ? "Zkopírováno" : "Kopírovat"}
+              </button>
+            </div>
+          </div>
+          <textarea
+            className="field mt-1"
+            rows={14}
+            value={listing}
+            onChange={(e) => {
+              const v = e.target.value;
+              setOwn((o) => ({ ...o, [platform]: v }));
+            }}
+            style={{ resize: "vertical", lineHeight: 1.45 }}
+          />
+        </details>
 
         {item &&
           (confirmDel ? (
@@ -637,19 +868,223 @@ function ItemForm({ item, client, brands, onClose }) {
   );
 }
 
-const FILTERS = ["Vše", ...STATUSES];
+const FILTERS = STATUSES;
+const MONTHS = ["led", "úno", "bře", "dub", "kvě", "čvn", "čvc", "srp", "zář", "říj", "lis", "pro"];
+const MONTHS_LONG = ["Leden", "Únor", "Březen", "Duben", "Květen", "Červen", "Červenec", "Srpen", "Září", "Říjen", "Listopad", "Prosinec"];
+
+// Sloupec s 4px zaoblením jen na konci dat, u nulové osy rovně
+function barPath(x, w, y0, y1) {
+  const r = Math.min(4, w / 2, Math.abs(y1 - y0));
+  if (y1 < y0)
+    return `M${x},${y0}V${y1 + r}Q${x},${y1} ${x + r},${y1}H${x + w - r}Q${x + w},${y1} ${x + w},${y1 + r}V${y0}Z`;
+  return `M${x},${y0}V${y1 - r}Q${x},${y1} ${x + r},${y1}H${x + w - r}Q${x + w},${y1} ${x + w},${y1 - r}V${y0}Z`;
+}
+
+function SalesChart({ items }) {
+  const sold = items.filter((i) => i.status === "Prodáno");
+  const dated = sold.filter((i) => i.sold_at);
+  const undated = sold.length - dated.length;
+
+  const months = useMemo(() => {
+    if (!dated.length) return [];
+    const key = (d) => d.slice(0, 7);
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), 1);
+    const first = dated.map((i) => key(i.sold_at)).sort()[0];
+    let start = new Date(Number(first.slice(0, 4)), Number(first.slice(5, 7)) - 1, 1);
+    const min = new Date(end.getFullYear(), end.getMonth() - 11, 1);
+    if (start < min) start = min;
+    const out = [];
+    for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const inMonth = dated.filter((i) => key(i.sold_at) === k);
+      out.push({ k, y: d.getFullYear(), m: d.getMonth(), count: inMonth.length, profit: round2(inMonth.reduce((s, i) => s + netProfit(i), 0)) });
+    }
+    return out;
+  }, [items]);
+
+  const [sel, setSel] = useState(null);
+  const active = months.find((m) => m.k === sel) || months[months.length - 1];
+
+  return (
+    <div className="card p-4 mb-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h3 className="font-display font-semibold">Prodeje po měsících</h3>
+        {active && (
+          <p className="text-sm tnum" aria-live="polite">
+            <span className="text-muted">{MONTHS_LONG[active.m]} {active.y}: </span>
+            {active.count} ks,{" "}
+            <span className="font-semibold">{active.count ? czkSigned(active.profit) : "0 Kč"}</span>
+          </p>
+        )}
+      </div>
+      {!months.length ? (
+        <p className="text-sm text-muted mt-2">Graf se začne kreslit, až u prodaných věcí bude datum prodeje. Nově se vyplní samo při přepnutí na Prodáno.</p>
+      ) : (
+        <Bars months={months} active={active} onSelect={setSel} />
+      )}
+      {undated > 0 && (
+        <p className="text-xs text-muted mt-2">
+          {undated} {undated === 1 ? "starší prodej nemá" : undated < 5 ? "starší prodeje nemají" : "starších prodejů nemá"} datum prodeje, do grafu se nepočítá. Doplníš ho v tabulce prodaných.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Bars({ months, active, onSelect }) {
+  // Kreslí se ve skutečných pixelech, aby popisky byly čitelné i na telefonu
+  const box = useRef(null);
+  const [W, setW] = useState(600);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(Math.max(200, el.clientWidth)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const H = 180, top = 12, bottom = 40;
+  const max = Math.max(1, ...months.map((m) => Math.abs(m.profit)));
+  const hasNeg = months.some((m) => m.profit < 0);
+  const hasPos = months.some((m) => m.profit > 0);
+  const plotH = H - top - bottom;
+  // nulová osa: nahoře/dole/uprostřed podle toho, jestli jsou v datech zisky i ztráty
+  const zero = top + (hasNeg && hasPos ? plotH / 2 : hasNeg ? 0 : plotH);
+  const scale = (hasNeg && hasPos ? plotH / 2 : plotH) / max;
+  const step = W / months.length;
+  const bw = Math.max(6, Math.min(44, step * 0.56));
+  return (
+    <div ref={box} className="w-full mt-3">
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block" role="img" aria-label="Zisk podle měsíce prodeje">
+      <line x1="0" x2={W} y1={zero} y2={zero} stroke="var(--line)" strokeWidth="1" />
+      {months.map((m, i) => {
+        const cx = i * step + step / 2;
+        const y1 = zero - m.profit * scale;
+        const on = active && active.k === m.k;
+        return (
+          <g key={m.k} onClick={() => onSelect(m.k)} onMouseEnter={() => onSelect(m.k)} style={{ cursor: "pointer" }}>
+            <title>{`${MONTHS_LONG[m.m]} ${m.y}: ${m.count} ks, ${czkSigned(m.profit)}`}</title>
+            <rect x={i * step} y="0" width={step} height={H} fill={on ? "rgba(255,255,255,.04)" : "transparent"} />
+            {m.count > 0 && Math.abs(y1 - zero) >= 1 && (
+              <path d={barPath(cx - bw / 2, bw, zero, y1)} fill={m.profit >= 0 ? "var(--ok)" : "var(--danger)"} opacity={on ? 1 : 0.8} />
+            )}
+            {m.count > 0 && Math.abs(y1 - zero) < 1 && <rect x={cx - bw / 2} y={zero - 1} width={bw} height="2" fill="var(--muted)" />}
+            <text x={cx} y={H - 20} textAnchor="middle" fontSize="12" fill={on ? "var(--fg)" : "var(--muted)"}>
+              {MONTHS[m.m]}
+            </text>
+            <text x={cx} y={H - 4} textAnchor="middle" fontSize="11" fill="var(--muted)" className="tnum">
+              {m.count ? `${m.count} ks` : "–"}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+    </div>
+  );
+}
+
+function SoldTable({ items, onOpen }) {
+  const [open, setOpen] = useState(false);
+  const rows = [...items].sort((a, b) => (b.sold_at || "").localeCompare(a.sold_at || ""));
+  const total = round2(rows.reduce((s, i) => s + netProfit(i), 0));
+  const shown = open ? rows : rows.slice(0, 8);
+  if (!rows.length) return null;
+  return (
+    <div className="mt-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <h3 className="font-display text-lg font-semibold">Prodané před víc než měsícem</h3>
+        <span className="text-sm tnum text-muted">
+          {rows.length} ks, <span style={{ color: toneColor(total) }}>{czkSigned(total)}</span>
+        </span>
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm tnum" style={{ borderCollapse: "collapse" }}>
+          <thead>
+            <tr className="text-left text-muted" style={{ borderBottom: "1px solid var(--line)" }}>
+              <th className="font-normal px-3 py-2">Prodáno</th>
+              <th className="font-normal px-3 py-2">Věc</th>
+              <th className="font-normal px-3 py-2 text-right hidden sm:table-cell">Nákup</th>
+              <th className="font-normal px-3 py-2 text-right hidden sm:table-cell">Prodej</th>
+              <th className="font-normal px-3 py-2 text-right hidden md:table-cell">Promo + doprava</th>
+              <th className="font-normal px-3 py-2 text-right">Zisk</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((i) => {
+              const p = netProfit(i);
+              const costs = (i.promo_channel === "Žádné" ? 0 : num(i.promo_amount) || 0) + (num(i.shipping) || 0);
+              return (
+                <tr
+                  key={i.id}
+                  tabIndex={0}
+                  onClick={() => onOpen(i)}
+                  onKeyDown={(e) => e.key === "Enter" && onOpen(i)}
+                  className="cursor-pointer hover:bg-panel2"
+                  style={{ borderTop: "1px solid var(--line)" }}
+                >
+                  <td className="px-3 py-2 whitespace-nowrap text-muted">{shortDate(i.sold_at)}</td>
+                  <td className="px-3 py-2" style={{ minWidth: 140 }}>
+                    <div className="font-semibold">{i.brand}{i.size ? ` (${i.size})` : ""}</div>
+                    {i.name && <div className="text-muted text-xs">{i.name}</div>}
+                  </td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap hidden sm:table-cell">{czk(num(i.purchase_price) || 0)}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap hidden sm:table-cell">{czk(num(i.sale_price) || 0)}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap hidden md:table-cell text-muted">{costs ? czk(costs) : "—"}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap font-semibold" style={{ color: toneColor(p) }}>
+                    {czkSigned(p)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > 8 && (
+        <button type="button" className="text-sm text-muted underline underline-offset-2 mt-2" onClick={() => setOpen(!open)}>
+          {open ? "Zobrazit méně" : `Zobrazit všech ${rows.length}`}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function ResellTab({ client, user, role, onLogin }) {
   const allowed = !!user && (role === "owner" || role === "member");
   const { items, error, reload } = useItems(client, allowed);
   const [form, setForm] = useState(null);
-  const [filter, setFilter] = useState("Vše");
+  const [filter, setFilterState] = useState(() => {
+    const saved = store.get(FILTER_KEY);
+    return FILTERS.includes(saved) ? saved : "Inzerováno";
+  });
+  const setFilter = (x) => {
+    setFilterState(x);
+    store.set(FILTER_KEY, x);
+  };
 
   const all = useMemo(() => (allowed && items) || [], [items, allowed]);
+  const cutoff = archiveCutoff();
+  const active = all.filter((i) => !isArchived(i, cutoff));
+  const archived = all.filter((i) => isArchived(i, cutoff));
   const { soldCount, totalProfit } = useMemo(() => summarize(all), [all]);
   const brands = useMemo(() => uniqueBrands(all), [all]);
-  const visible = filter === "Vše" ? all : all.filter((i) => i.status === filter);
-  const countFor = (x) => (x === "Vše" ? all.length : all.filter((i) => i.status === x).length);
+  const visible = active.filter((i) => i.status === filter);
+  const countFor = (x) => active.filter((i) => i.status === x).length;
+
+  // Úklid: prodaným před víc než měsícem smaže fotku ze Storage, ať nedojde místo
+  const cleaning = useRef(new Set());
+  useEffect(() => {
+    if (!allowed || !items || !navigator.onLine) return;
+    const todo = items.filter((i) => i.photo_path && isArchived(i, archiveCutoff()) && !cleaning.current.has(i.id));
+    if (!todo.length) return;
+    todo.forEach((i) => cleaning.current.add(i.id));
+    (async () => {
+      const { error } = await client.storage.from(BUCKET).remove(todo.map((i) => i.photo_path));
+      if (error) return console.warn("Úklid fotek se nepovedl", error);
+      const res = await client.from("resell_items").update({ photo_path: null }).in("id", todo.map((i) => i.id));
+      if (res.error) console.warn("Úklid fotek se nepovedl", res.error);
+      reload();
+    })();
+  }, [items, allowed]);
 
   if (!client)
     return <p className="text-muted">Resell tracker potřebuje synchronizaci se Supabase. Doplň config.js.</p>;
@@ -678,11 +1113,13 @@ function ResellTab({ client, user, role, onLogin }) {
     <section>
       <Stats soldCount={soldCount} totalProfit={totalProfit} inStock={all.length - soldCount} />
 
+      {all.length > 0 && <SalesChart items={all} />}
+
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="seg" role="group" aria-label="Filtr podle stavu">
           {FILTERS.map((x) => (
             <button key={x} type="button" aria-pressed={filter === x} onClick={() => setFilter(x)}>
-              {x} <span className="tnum text-muted">{countFor(x)}</span>
+              {x === "Prodáno" ? "Prodáno tento měsíc" : x} <span className="tnum text-muted">{countFor(x)}</span>
             </button>
           ))}
         </div>
@@ -701,7 +1138,11 @@ function ResellTab({ client, user, role, onLogin }) {
       {items && all.length === 0 && (
         <div className="card border-dashed p-6 text-center text-muted">Sklad je prázdný. Přidej první kus.</div>
       )}
-      {all.length > 0 && visible.length === 0 && <p className="text-muted py-6 text-center">V tomhle stavu teď nic nemáš.</p>}
+      {all.length > 0 && visible.length === 0 && (
+        <p className="text-muted py-6 text-center">
+          {filter === "Prodáno" ? `Za posledních ${ARCHIVE_DAYS} dní nic prodaného. Starší prodeje jsou v tabulce níž.` : "V tomhle stavu teď nic nemáš."}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {visible.map((i) => (
@@ -709,8 +1150,11 @@ function ResellTab({ client, user, role, onLogin }) {
         ))}
       </div>
 
+      <SoldTable items={archived} onOpen={(i) => setForm({ item: i })} />
+
       {form && (
         <ItemForm
+          key={form.item ? form.item.id : "new"}
           item={form.item}
           client={client}
           brands={brands}
